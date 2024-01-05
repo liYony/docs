@@ -1,4 +1,17 @@
 - **应用开发**
+  - **Shell脚本**
+    - [Shell简介](/_docs/linux/application_development/shell/01_shell简介.md)
+    - [Shell常用命令](/_docs/linux/application_development/shell/02_shell常用命令.md)
+    - [Shell脚本基本知识](/_docs/linux/application_development/shell/03_shell脚本基本知识.md)
+    - [Shell脚本变量](/_docs/linux/application_development/shell/04_shell变量.md)
+    - [Shell脚本字符串](/_docs/linux/application_development/shell/05_shell字符串.md)
+    - [Shell脚本数组](/_docs/linux/application_development/shell/06_shell数组.md)
+    - [Shell脚本传递参数](/_docs/linux/application_development/shell/07_shell传递参数.md)
+    - [Shell脚本运算符](/_docs/linux/application_development/shell/08_shell运算符.md)
+    - [Shell脚本编程中的命令](/_docs/linux/application_development/shell/09_shell编程中的命令.md)
+    - [Shell脚本流程控制](/_docs/linux/application_development/shell/10_shell流程控制.md)
+    - [Shell脚本函数](/_docs/linux/application_development/shell/11_shell函数.md)
+    - [Shell脚本重定向](/_docs/linux/application_development/shell/12_shell重定向.md)
   - **Makefile**
     - [Makefile的引入及规则](/_docs/linux/application_development/makefile/01_Makefile的引入及规则.md)
     - [Makefile的语法](/_docs/linux/application_development/makefile/02_Makefile的语法.md)
