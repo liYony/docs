@@ -1,4 +1,6 @@
 - **应用开发**
+  - **Ubuntu系统**
+    - [Linux系统介绍](/_docs/linux/application_development/ubuntu/01_linux系统介绍.md)
   - **Shell脚本**
     - [Shell简介](/_docs/linux/application_development/shell/01_shell简介.md)
     - [Shell常用命令](/_docs/linux/application_development/shell/02_shell常用命令.md)
