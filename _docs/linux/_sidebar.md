@@ -1,6 +1,13 @@
+- **环境搭建**
+  - **软件安装**
+    - [Source Insight使用](/_docs/linux/environment_construction/01_sourceinsight使用.md) 
 - **应用开发**
   - **Ubuntu系统**
     - [Linux系统介绍](/_docs/linux/application_development/ubuntu/01_linux系统介绍.md)
+  - **GCC编译器**
+    - [GCC编译器的使用](/_docs/linux/application_development/gcc/01_gcc编译器的使用.md)
+  - **文件IO**
+    - [文件IO介绍](/_docs/linux/application_development/io/01_文件IO.md)
   - **Shell脚本**
     - [Shell简介](/_docs/linux/application_development/shell/01_shell简介.md)
     - [Shell常用命令](/_docs/linux/application_development/shell/02_shell常用命令.md)
