@@ -28,4 +28,5 @@
     - [Makefile实例](/_docs/linux/application_development/makefile/04_Makefile实例.md)
 - **驱动开发**
   - **内核机制分析**
-    - [字符设备驱动程序](/_docs/linux/drive_development/kernel_mechanism/01_字符设备驱动程序.md)
+    - [内核模块](/_docs/linux/drive_development/kernel_mechanism/01_内核模块.md)
+    - [字符设备驱动程序](/_docs/linux/drive_development/kernel_mechanism/02_字符设备驱动程序.md)
