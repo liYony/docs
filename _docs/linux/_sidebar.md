@@ -46,7 +46,6 @@
     - [电源管理的系统架构和驱动](/_docs/linux/drive_development/drive_program/16_电源管理的系统架构和驱动.md)
     - [芯片级移植及底层驱动](/_docs/linux/drive_development/drive_program/17_芯片级移植及底层驱动.md)
     - [设备驱动的调试](/_docs/linux/drive_development/drive_program/18_设备驱动的调试.md)
-    - [内核及内核编程](/_docs/linux/drive_development/drive_program/19_内核及内核编程.md)    
   - **内核机制分析**
     - [内核模块](/_docs/linux/drive_development/kernel_mechanism/01_内核模块.md)
     - [字符设备驱动程序](/_docs/linux/drive_development/kernel_mechanism/02_字符设备驱动程序.md)
