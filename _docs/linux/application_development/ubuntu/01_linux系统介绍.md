@@ -30,3 +30,15 @@
  │   └── src      源码
  └── var          主要针对常态性变动的文件，包括缓存(cache)、log文件等
 ```
+
+## 2 ubuntu20 配置Linux开发环境
+
+### 2.1 固定IP
+
+[ubuntu20设置固定ip](http://t.csdnimg.cn/etRPS)
+
+### 2.2 开启ssh
+
+```shell
+sudo apt-get install openssh-server
+```
