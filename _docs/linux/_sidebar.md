@@ -51,3 +51,5 @@
     - [字符设备驱动程序](/_docs/linux/drive_development/kernel_mechanism/02_字符设备驱动程序.md)
     - [内存管理](/_docs/linux/drive_development/kernel_mechanism/03_内存管理.md)
     - [互斥与同步](/_docs/linux/drive_development/kernel_mechanism/04_互斥与同步.md)
+    - [中断处理](/_docs/linux/drive_development/kernel_mechanism/05_中断处理.md)
+    - [延迟操作](/_docs/linux/drive_development/kernel_mechanism/06_延迟操作.md)
