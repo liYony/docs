@@ -251,9 +251,150 @@ UBoot> fdt addr 0x71000000
 
 fdt的其他命令就变得可以使用，如fdt resize、fdt print等。
 
-对于ARM来讲，可以通过bootz kernel_addr initrd_address dtb_address的命令来启动内核，即dtb_address作为bootz或者bootm的最后一次参数，第一个参数为内核映像的地址，第二个参数为initrd的地址，若不存在initrd，可以用“-”符号代替。
+对于ARM来讲，可以通过bootz kernel_addr initrd_address dtb_address的命令来启动内核，即dtb_address作为bootz或者bootm的最后一个参数，第一个参数为内核映像的地址，第二个参数为initrd的地址，若不存在initrd，可以用“-”符号代替。
 
 ### 2.2 根节点兼容性
 
+上述.dts文件中，第2行根节点"/"的兼容属性compatible="acme，coyotes-revenge"；定义了整个系统（设备级别）的名称，它的组织形式为：`<manufacturer>, <model>`。
 
+Linux内核通过根节点"/"的兼容属性即可判断它启动的是什么设备。在真实项目中，这个顶层设备的兼容属性一般包括两个或者两个以上的兼容性字符串，首个兼容性字符串是板子级别的名字，后面一个兼容性是芯片级别（或者芯片系列级别）的名字。
+
+```dtd
+compatible = "arm,vexpress,v2p-ca9", "arm,vexpress";        // 板子arch/arm/boot/dts/vexpress-v2p-ca9.dts
+compatible = "arm,vexpress,v2p-ca5s", "arm,vexpress";       // 板子arch/arm/boot/dts/vexpress-v2p-ca5s.dts
+compatible = "arm,vexpress,v2p-ca15_a7", "arm,vexpress";    // 板子arch/arm/boot/dts/vexpress-v2p-ca15_a7.dts
+```
+
+可以看出，上述各个电路板的共性是兼容于arm，vexpress，而特性是分别兼容于arm，vexpress，v2pca9、arm，vexpress，v2p-ca5s和arm，vexpress，v2p-ca15_a7。
+
+```dtd
+compatible = "insignal,origen", "samsung,exynos4210", "samsung,exynos4";        // arch/arm/boot/dts/exynos4210-origen.dts
+compatible = "samsung,universal_c210", "samsung,exynos4210", "samsung,exynos4"; // arch/arm/boot/dts/exynos4210-universal_c210.dts
+```
+
+第一个字符串是板子名字（很特定），第2个字符串是芯片名字（比较特定），第3个字段是芯片系列的名字（比较通用）。由此可见两者的区别只在于第1个字符串（特定的板子名字）不一样，后面芯片名和芯片系列的名字都一样。
+
+在Linux 2.6内核中，ARM Linux针对不同的电路板会建立由MACHINE_START和MACHINE_END包围起来的针对这个设备的一系列回调函数。如下：
+
+```c
+MACHINE_START(VEXPRESS, "ARM-Versatile Express")
+    .atag_offset = 0x100,
+    .smp = smp_ops(vexpress_smp_ops),
+    .map_io = v2m_map_io,
+    .init_early = v2m_init_early,
+    .init_irq = v2m_init_irq,
+    .timer = &v2m_timer,
+    .handle_irq = gic_handle_irq,
+    .init_machine = v2m_init,
+    .restart = vexpress_restart,
+MACHINE_END
+```
+
+这些不同的设备会有不同的MACHINEID，Uboot在启动Linux内核时会将MACHINE ID存放在r1寄存器，Linux启动时会匹配Bootloader传递的MACHINEID和MACHINE_START声明的MACHINEID，然后执行相应设备的一系列初始化函数。
+
+ARM Linux 3.x在引入设备树之后，MACHINE_START变更为DT_MACHINE_START，其中含有一个.dt_compat成员，用于表明相关的设备与.dts中根节点的兼容属性兼容关系。如果Bootloader传递给内核的设备树中根节点的兼容属性出现在某设备的.dt_compat表中，相关的设备就与对应的兼容匹配，从而引发这一设备的一系列初始化函数被执行。一个典型的DT_MACHINE如下：
+
+```c
+static const char * const v2m_dt_match[] __initconst = {
+    "arm,vexpress",
+    "xen,xenvm",
+    NULL,
+};
+DT_MACHINE_START(VEXPRESS_DT, "ARM-Versatile Express")
+    .dt_compat = v2m_dt_match,
+    .smp = smp_ops(vexpress_smp_ops),
+    .map_io = v2m_dt_map_io,
+    .init_early = v2m_dt_init_early,
+    .init_irq = v2m_dt_init_irq,
+    .timer = &v2m_dt_timer,
+    .init_machine = v2m_dt_init,
+    .handle_irq = gic_handle_irq,
+    .restart = vexpress_restart,
+MACHINE_END
+```
+
+Linux倡导针对多个SoC、多个电路板的通用DT设备，即一个DT设备的.dt_compat包含多个电路板.dts文件的根节点兼容属性字符串。之后，如果这多个电路板的初始化序列不一样，可以通过intof_machine_is_compatible（const char*compat）API判断具体的电路板是什么。在Linux内核中，常常使用如下API来判断根节点的兼容性：
+
+```c
+int of_machine_is_compatible(const char *compat);
+```
+
+此API判断目前运行的板子或者SoC的兼容性，它匹配的是设备树根节点下的兼容属性。例如drivers/cpufreq/exynos-cpufreq.c中就有判断运行的CPU类型是exynos4210、exynos4212、exynos4412还是exynos5250的代码，进而分别处理，代码如下：
+
+```c
+static int exynos_cpufreq_probe(struct platform_device *pdev)
+{
+    int ret = -EINVAL;
+
+    exynos_info = kzalloc(sizeof(*exynos_info), GFP_KERNEL);
+    if (!exynos_info)
+        return -ENOMEM;
+
+    exynos_info->dev = &pdev->dev;
+
+    if (of_machine_is_compatible("samsung,exynos4210")) {
+        exynos_info->type = EXYNOS_SOC_4210;
+        ret = exynos4210_cpufreq_init(exynos_info);
+    } else if (of_machine_is_compatible("samsung,exynos4212")) {
+        exynos_info->type = EXYNOS_SOC_4212;
+        ret = exynos4x12_cpufreq_init(exynos_info);
+    } else if (of_machine_is_compatible("samsung,exynos4412")) {
+        exynos_info->type = EXYNOS_SOC_4412;
+        ret = exynos4x12_cpufreq_init(exynos_info);
+    } else if (of_machine_is_compatible("samsung,exynos5250")) {
+        exynos_info->type = EXYNOS_SOC_5250;
+        ret = exynos5250_cpufreq_init(exynos_info);
+    } else {
+        pr_err("%s: Unknown SoC type\n", __func__);
+        return -ENODEV;
+    }
+    ...
+}
+```
+
+如果一个兼容包含多个字符串，譬如对于前面介绍的根节点兼容compatible="samsung，universal_c210"，"samsung，exynos4210"，"samsung，exynos4"的情况，如下3个表达式都是成立的。
+
+```c
+of_machine_is_compatible("samsung,universal_c210")
+of_machine_is_compatible("samsung,exynos4210")
+of_machine_is_compatible("samsung,exynos4")
+```
+
+### 2.3 设备节点兼容性
+
+在.dts文件的每个设备节点中，都有一个兼容属性，兼容属性用于驱动和设备的绑定。兼容属性是一个字符串的列表，列表中的第一个字符串表征了节点代表的确切设备，形式为`<manufacturer>, <model>`，其后的字符串表征可兼容的其他设备。可以说前面的是特指，后面的则涵盖更广的范围。如在vexpress-v2m.dtsi中的Flash节点如下：
+
+```dtd
+flash@0,00000000 {
+compatible = "arm,vexpress-flash", "cfi-flash";
+reg = <0 0x00000000 0x04000000>,
+      <1 0x00000000 0x04000000>;
+      bank-width = <4>;
+};
+```
+
+兼容属性的第2个字符串"cfi-flash"明显比第1个字符串"arm，vexpress-flash"涵盖的范围更广。
+
+再如，Freescale MPC8349SoC含一个串口设备，它实现了国家半导体（National Sem-iconductor）的NS16550寄存器接口。则MPC8349串口设备的兼容属性为compatible="fsl，mpc8349-uart"，"ns16550"。其中，fsl，mpc8349-uart指代了确切的设备，ns16550代表该设备与NS16550UART保持了寄存器兼容。因此，设备节点的兼容性和根节点的兼容性是类似的，都是“从具体到抽象”。
+
+使用设备树后，驱动需要与.dts中描述的设备节点进行匹配，从而使驱动的probe（）函数执行。对于platform_driver而言，需要添加一个OF匹配表，如前文的.dts文件的"acme，a1234-i2c-bus"兼容I2C控制器节点的OF匹配表，具体代码如下所示。
+
+```c
+static const struct of_device_id a1234_i2c_of_match[] = {
+    {.compatible = "acme,a1234-i2c-bus",},
+    {},
+};
+MODULE_DEVICE_TABLE(of, a1234_i2c_of_match);
+
+static struct platform_driver i2c_a1234_driver = {
+    .driver = {
+        .name = "a1234-i2c-bus",
+        .owner = THIS_MODULE,
+        .of_match_table = a1234_i2c_of_match,
+    },
+    .probe = i2c_a1234_probe,
+    .remove = i2c_a1234_remove,
+};
+module_platform_driver(i2c_a1234_driver);
+```
 
