@@ -2,9 +2,9 @@
 
 ## 1 设备树介绍
 
-设备树是一种描述硬件的数据结构，它起源于OpenFirmware（OF）。在Linux 2.6中，ARM架构的板极硬件细节过多地被硬编码在arch/arm/plat-xxx和arch/arm/mach-xxx中，采用设备树后，许多硬件的细节可以直接通过它传递给Linux，而不再需要在内核中进行大量的冗余编码。
+设备树是一种描述硬件的数据结构，它起源于OpenFirmware(OF)。在Linux 2.6中，ARM架构的板极硬件细节过多地被硬编码在arch/arm/plat-xxx和arch/arm/mach-xxx中，采用设备树后，许多硬件的细节可以直接通过它传递给Linux，而不再需要在内核中进行大量的冗余编码。
 
-设备树由一系列被命名的节点（Node）和属性（Property）组成，而节点本身可包含子节点。所谓属性，其实就是成对出现的名称和值。在设备树中，可描述的信息包括（原先这些信息大多被硬编码在内核中）：
+设备树由一系列被命名的节点(Node)和属性(Property)组成，而节点本身可包含子节点。所谓属性，其实就是成对出现的名称和值。在设备树中，可描述的信息包括(原先这些信息大多被硬编码在内核中)：
 
 - CPU的数量和类别。
 - 内存基地址和大小。
@@ -26,7 +26,7 @@
 
 文件.dts是一种ASCII文本格式的设备树描述，此文本格式非常人性化，适合人类的阅读习惯。基本上，在ARM Linux中，一个.dts文件对应一个ARM的设备，一般放置在内核的arch/arm/boot/dts/目录中。值得注意的是，在arch/powerpc/boot/dts、arch/powerpc/boot/dts、arch/c6x/boot/dts、arch/openrisc/boot/dts等目录中，也存在大量的.dts文件，这证明DTS绝对不是ARM的专利。
 
-由于一个SoC可能对应多个设备（一个SoC可以对应多个产品和电路板），这些.dts文件势必须包含许多共同的部分，Linux内核为了简化，把SoC公用的部分或者多个设备共同的部分一般提炼为.dtsi，类似于C语言的头文件。其他的设备对应的.dts就包括这个.dtsi。譬如，对于VEXPRESS而言，vexpress-v2m.dtsi就被vexpress-v2p-ca9.dts所引用，vexpress-v2p-ca9.dts有如下一行代码：
+由于一个SoC可能对应多个设备(一个SoC可以对应多个产品和电路板)，这些.dts文件势必须包含许多共同的部分，Linux内核为了简化，把SoC公用的部分或者多个设备共同的部分一般提炼为.dtsi，类似于C语言的头文件。其他的设备对应的.dts就包括这个.dtsi。譬如，对于VEXPRESS而言，vexpress-v2m.dtsi就被vexpress-v2p-ca9.dts所引用，vexpress-v2p-ca9.dts有如下一行代码：
 
 ```dtd
 /include/ "vexpress-v2m.dtsi"
@@ -34,7 +34,7 @@
 
 当然，和C语言的头文件类似，.dtsi也可以包括其他的.dtsi，譬如几乎所有的ARM SoC的.dtsi都引用了skeleton.dtsi。
 
-文件.dts（或者其包括的.dtsi）的基本元素即为前文所述的节点和属性，下面给出了一个设备树结构的模版。
+文件.dts(或者其包括的.dtsi)的基本元素即为前文所述的节点和属性，下面给出了一个设备树结构的模版。
 
 ```dtd
 / {
@@ -61,13 +61,13 @@
 
 上述.dts文件并没有什么真实的用途，但它基本表征了一个设备树源文件的结构：
 
-1个root节点"/"；root节点下面含一系列子节点，本例中为node1和node2；节点node1下又含有一系列子节点，本例中为child-node1和child-node2；各节点都有一系列属性。这些属性可能为空，如an-emptyproperty；可能为字符串，如a-string-property；可能为字符串数组，如a-string-list-property；可能为Cells（由u32整数组成），如second-child-property；可能为二进制数，如a-byte-data-property。
+1个root节点"/"；root节点下面含一系列子节点，本例中为node1和node2；节点node1下又含有一系列子节点，本例中为child-node1和child-node2；各节点都有一系列属性。这些属性可能为空，如an-emptyproperty；可能为字符串，如a-string-property；可能为字符串数组，如a-string-list-property；可能为Cells(由u32整数组成)，如second-child-property；可能为二进制数，如a-byte-data-property。
 
 下面以一个最简单的设备为例来看如何写一个.dts文件。如下图所示，假设此设备的配置如下：
 
 ![image-20240115150129335](figures/image-20240115150129335.png)
 
-1个双核ARM Cortex-A932位处理器；ARM本地总线上的内存映射区域分布有两个串口（分别位于0x101F1000和0x101F2000）、GPIO控制器（位于0x101F3000）、SPI控制器（位于0x10170000）、中断控制器（位于0x10140000）和一个外部总线桥；外部总线桥上又连接了SMC SMC91111以太网（位于0x10100000）、I2C控制器（位于0x10160000）、64MB NOR Flash（位于0x30000000）；外部总线桥上连接的I2C控制器所对应的I2C总线上又连接了Maxim DS1338实时钟（I2C地址为0x58）。
+1个双核ARM Cortex-A932位处理器；ARM本地总线上的内存映射区域分布有两个串口(分别位于0x101F1000和0x101F2000)、GPIO控制器(位于0x101F3000)、SPI控制器(位于0x10170000)、中断控制器(位于0x10140000)和一个外部总线桥；外部总线桥上又连接了SMC SMC91111以太网(位于0x10100000)、I2C控制器(位于0x10160000)、64MB NOR Flash(位于0x30000000)；外部总线桥上连接的I2C控制器所对应的I2C总线上又连接了Maxim DS1338实时钟(I2C地址为0x58)。
 
 对于上图所示硬件结构图，如果用“.dts”描述，则其对应的“.dts”文件代码如下。
 
@@ -193,7 +193,7 @@ DTC除了可以编译.dts文件以外，其实也可以“反汇编”.dtb文件
 
 通常在我们为电路板制作NAND、SD启动映像时，会为.dtb文件单独留下一个很小的区域以存放之，之后bootloader在引导内核的过程中，会先读取该.dtb到内存。
 
-Linux内核也支持一种变通的模式，可以不把.dtb文件单独存放，而是直接和zImage绑定在一起做成一个映像文件，类似cat zImage xxx.dtb>zImage_with_dtb的效果。当然内核编译时候要使能CONFIG_ARM_APPENDED_DTB这个选项，以支持“Use appended device tree blob to zImage”（见Linux内核中的菜单）。
+Linux内核也支持一种变通的模式，可以不把.dtb文件单独存放，而是直接和zImage绑定在一起做成一个映像文件，类似cat zImage xxx.dtb>zImage_with_dtb的效果。当然内核编译时候要使能CONFIG_ARM_APPENDED_DTB这个选项，以支持“Use appended device tree blob to zImage”(见Linux内核中的菜单)。
 
 #### 4 绑定(Binding)文档
 
@@ -227,8 +227,8 @@ axi_iic_0: i2c@40800000 {
 基本可以看出，设备树绑定文档的主要内容包括：
 
 - 关于该模块最基本的描述。
-- 必需属性（Required Properties）的描述。
-- 可选属性（Optional Properties）的描述。
+- 必需属性(Required Properties)的描述。
+- 可选属性(Optional Properties)的描述。
 - 一个实例。
 
 Linux内核下的scripts/checkpatch.pl会运行一个检查，如果有人在设备树中新添加了compatible字符串，而没有添加相应的文档进行解释，checkpatch程序会报出警告：UNDOCUMENTED_DT_STRINGDT compatible string xxx appears un-documented，因此程序员要养成及时写DT Binding文档的习惯。
@@ -255,9 +255,9 @@ fdt的其他命令就变得可以使用，如fdt resize、fdt print等。
 
 ### 2.2 根节点兼容性
 
-上述.dts文件中，第2行根节点"/"的兼容属性compatible="acme，coyotes-revenge"；定义了整个系统（设备级别）的名称，它的组织形式为：`<manufacturer>, <model>`。
+上述.dts文件中，第2行根节点"/"的兼容属性compatible="acme，coyotes-revenge"；定义了整个系统(设备级别)的名称，它的组织形式为：`<manufacturer>, <model>`。
 
-Linux内核通过根节点"/"的兼容属性即可判断它启动的是什么设备。在真实项目中，这个顶层设备的兼容属性一般包括两个或者两个以上的兼容性字符串，首个兼容性字符串是板子级别的名字，后面一个兼容性是芯片级别（或者芯片系列级别）的名字。
+Linux内核通过根节点"/"的兼容属性即可判断它启动的是什么设备。在真实项目中，这个顶层设备的兼容属性一般包括两个或者两个以上的兼容性字符串，首个兼容性字符串是板子级别的名字，后面一个兼容性是芯片级别(或者芯片系列级别)的名字。
 
 ```dtd
 compatible = "arm,vexpress,v2p-ca9", "arm,vexpress";        // 板子arch/arm/boot/dts/vexpress-v2p-ca9.dts
@@ -272,7 +272,7 @@ compatible = "insignal,origen", "samsung,exynos4210", "samsung,exynos4";        
 compatible = "samsung,universal_c210", "samsung,exynos4210", "samsung,exynos4"; // arch/arm/boot/dts/exynos4210-universal_c210.dts
 ```
 
-第一个字符串是板子名字（很特定），第2个字符串是芯片名字（比较特定），第3个字段是芯片系列的名字（比较通用）。由此可见两者的区别只在于第1个字符串（特定的板子名字）不一样，后面芯片名和芯片系列的名字都一样。
+第一个字符串是板子名字(很特定)，第2个字符串是芯片名字(比较特定)，第3个字段是芯片系列的名字(比较通用)。由此可见两者的区别只在于第1个字符串(特定的板子名字)不一样，后面芯片名和芯片系列的名字都一样。
 
 在Linux 2.6内核中，ARM Linux针对不同的电路板会建立由MACHINE_START和MACHINE_END包围起来的针对这个设备的一系列回调函数。如下：
 
@@ -313,7 +313,7 @@ DT_MACHINE_START(VEXPRESS_DT, "ARM-Versatile Express")
 MACHINE_END
 ```
 
-Linux倡导针对多个SoC、多个电路板的通用DT设备，即一个DT设备的.dt_compat包含多个电路板.dts文件的根节点兼容属性字符串。之后，如果这多个电路板的初始化序列不一样，可以通过intof_machine_is_compatible（const char*compat）API判断具体的电路板是什么。在Linux内核中，常常使用如下API来判断根节点的兼容性：
+Linux倡导针对多个SoC、多个电路板的通用DT设备，即一个DT设备的.dt_compat包含多个电路板.dts文件的根节点兼容属性字符串。之后，如果这多个电路板的初始化序列不一样，可以通过intof_machine_is_compatible(const char*compat)API判断具体的电路板是什么。在Linux内核中，常常使用如下API来判断根节点的兼容性：
 
 ```c
 int of_machine_is_compatible(const char *compat);
@@ -375,9 +375,9 @@ reg = <0 0x00000000 0x04000000>,
 
 兼容属性的第2个字符串"cfi-flash"明显比第1个字符串"arm，vexpress-flash"涵盖的范围更广。
 
-再如，Freescale MPC8349SoC含一个串口设备，它实现了国家半导体（National Sem-iconductor）的NS16550寄存器接口。则MPC8349串口设备的兼容属性为compatible="fsl，mpc8349-uart"，"ns16550"。其中，fsl，mpc8349-uart指代了确切的设备，ns16550代表该设备与NS16550UART保持了寄存器兼容。因此，设备节点的兼容性和根节点的兼容性是类似的，都是“从具体到抽象”。
+再如，Freescale MPC8349SoC含一个串口设备，它实现了国家半导体(National Sem-iconductor)的NS16550寄存器接口。则MPC8349串口设备的兼容属性为compatible="fsl，mpc8349-uart"，"ns16550"。其中，fsl，mpc8349-uart指代了确切的设备，ns16550代表该设备与NS16550UART保持了寄存器兼容。因此，设备节点的兼容性和根节点的兼容性是类似的，都是“从具体到抽象”。
 
-使用设备树后，驱动需要与.dts中描述的设备节点进行匹配，从而使驱动的probe（）函数执行。对于platform_driver而言，需要添加一个OF匹配表，如前文的.dts文件的"acme，a1234-i2c-bus"兼容I2C控制器节点的OF匹配表，具体代码如下所示。
+使用设备树后，驱动需要与.dts中描述的设备节点进行匹配，从而使驱动的probe()函数执行。对于platform_driver而言，需要添加一个OF匹配表，如前文的.dts文件的"acme，a1234-i2c-bus"兼容I2C控制器节点的OF匹配表，具体代码如下所示。
 
 ```c
 static const struct of_device_id a1234_i2c_of_match[] = {
@@ -433,7 +433,7 @@ static struct i2c_driver wm8753_i2c_driver = {
 > 
 > 详细的前缀可见于内核文档：Documentation/devicetree/bindings/vendor-prefixes.txt。
 
-对于I2C、SPI还有一点需要提醒的是，I2C和SPI外设驱动和设备树中设备节点的兼容属性还有一种弱式匹配方法，就是“别名”匹配。兼容属性的组织形式为`<manufacturer>, <model>`，别名其实就是去掉兼容属性中manufacturer前缀后的`<model>`部分。关于这一点，可查看drivers/spi/spi.c的源代码，函数spi_match_device（）暴露了更多的细节，如果别名出现在设备spi_driver的id_table里面，或者别名与spi_driver的name字段相同，SPI设备和驱动都可以匹配上，如下代码显示了SPI的别名匹配。
+对于I2C、SPI还有一点需要提醒的是，I2C和SPI外设驱动和设备树中设备节点的兼容属性还有一种弱式匹配方法，就是“别名”匹配。兼容属性的组织形式为`<manufacturer>, <model>`，别名其实就是去掉兼容属性中manufacturer前缀后的`<model>`部分。关于这一点，可查看drivers/spi/spi.c的源代码，函数spi_match_device()暴露了更多的细节，如果别名出现在设备spi_driver的id_table里面，或者别名与spi_driver的name字段相同，SPI设备和驱动都可以匹配上，如下代码显示了SPI的别名匹配。
 
 ```c
 static int spi_match_device(struct device *dev, struct device_driver *drv)
@@ -477,7 +477,7 @@ int of_device_is_compatible(const struct device_node *device,const char *compat)
 
 此函数用于判断设备节点的兼容属性是否包含compat指定的字符串。这个API多用于一个驱动支持两个以上设备的时候。
 
-当一个驱动支持两个或多个设备的时候，这些不同.dts文件中设备的兼容属性都会写入驱动OF匹配表。因此驱动可以通过Bootloader传递给内核设备树中的真正节点的兼容属性以确定究竟是哪一种设备，从而根据不同的设备类型进行不同的处理。如arch/powerpc/platforms/83xx/usb.c中的mpc831x_usb_cfg（）就进行了类似处理：
+当一个驱动支持两个或多个设备的时候，这些不同.dts文件中设备的兼容属性都会写入驱动OF匹配表。因此驱动可以通过Bootloader传递给内核设备树中的真正节点的兼容属性以确定究竟是哪一种设备，从而根据不同的设备类型进行不同的处理。如arch/powerpc/platforms/83xx/usb.c中的mpc831x_usb_cfg()就进行了类似处理：
 
 ```c
 if (immr_node && (of_device_is_compatible(immr_node, "fsl,mpc8315-immr") ||
@@ -516,7 +516,7 @@ if (prop && !strcmp(prop, "ulpi")) {
 
 它根据具体的设备是fsl，mpc8315-immr和fsl，mpc8308-immr、中的哪一种来进行不同的处理。
 
-当一个驱动可以兼容多种设备的时候，除了of_device_is_compatible（）这种判断方法以外，还可以采用在驱动的of_device_id表中填充.data成员的形式。譬如，arch/arm/mm/cache-l2x0.c支持“arm，l210-cache”“arm，pl310-cache”“arm，l220-cache”等多种设备，其of_device_id表如代下代码所示。
+当一个驱动可以兼容多种设备的时候，除了of_device_is_compatible()这种判断方法以外，还可以采用在驱动的of_device_id表中填充.data成员的形式。譬如，arch/arm/mm/cache-l2x0.c支持“arm，l210-cache”“arm，pl310-cache”“arm，l220-cache”等多种设备，其of_device_id表如代下代码所示。
 
 ```c
 #define L2C_ID(name, fns) { .compatible = name, .data = (void *)&fns }
@@ -535,7 +535,7 @@ static const struct of_device_id l2x0_ids[] __initconst = {
 };
 ```
 
-在驱动中，通过下面代码的方法拿到了对应于L2缓存类型的.data成员，其中主要用到了of_match_node（）这个API。
+在驱动中，通过下面代码的方法拿到了对应于L2缓存类型的.data成员，其中主要用到了of_match_node()这个API。
 
 ```c
 int __init l2x0_of_init(u32 aux_val, u32 aux_mask)
@@ -603,9 +603,9 @@ i2c@13890000 {
 
 > [!NOTE]
 >
-> 具体的节点命名规范可见ePAPR（embedded Power Architecture Platform Reference）标准，在https://www.power.org中可下载该标准。
+> 具体的节点命名规范可见ePAPR(embedded Power Architecture Platform Reference)标准，在https://www.power.org中可下载该标准。
 
-我们还可以给一个设备节点添加label，之后可以通过&label的形式访问这个label，这种引用是通过phandle（pointer handle）进行的。
+我们还可以给一个设备节点添加label，之后可以通过&label的形式访问这个label，这种引用是通过phandle(pointer handle)进行的。
 
 例如，在arch/arm/boot/dts/omap5.dtsi中，第3组GPIO有gpio3这个label，如下面代码所示。
 
@@ -669,7 +669,7 @@ cmd_dtc = $(CPP) $(dtc_cpp_flags) -x assembler-with-cpp -o $(dtc-tmp) $< ; \
 cat $(depfile).pre.tmp $(depfile).dtc.tmp > $(depfile)
 ```
 
-它是先做了$（CPP）$（dtc_cpp_flags）-x assembler-with-cpp-o$（dtc-tmp）$<，再做的.dtc编译。
+它是先做了$(CPP)$(dtc_cpp_flags)-x assembler-with-cpp-o$(dtc-tmp)$<，再做的.dtc编译。
 
 ### 2.5 地址编码
 
@@ -681,7 +681,7 @@ reg
     #size-cells
 ```
 
-其中，reg的组织形式为reg=`<address1 length1[address2 length2][address3 length3]...>`，其中的每一组address length表明了设备使用的一个地址范围。address为1个或多个32位的整型（即cell），而length的意义则意味着从address到address+length–1的地址范围都属于该节点。若#size-cells=0，则length字段为空。
+其中，reg的组织形式为reg=`<address1 length1[address2 length2][address3 length3]...>`，其中的每一组address length表明了设备使用的一个地址范围。address为1个或多个32位的整型(即cell)，而length的意义则意味着从address到address+length–1的地址范围都属于该节点。若#size-cells=0，则length字段为空。
 
 address和length字段是可变长的，父节点的#address-cells和#size-cells分别决定了子节点reg属性的address和length字段的长度。
 
@@ -689,7 +689,7 @@ address和length字段是可变长的，父节点的#address-cells和#size-cells
 
 cpus节点的#address-cells=<1>；和#size-cells=<0>；决定了两个cpu子节点的address为1，而length为空，于是形成了两个cpu的reg=<0>；和reg=<1>；
 
-external-bus节点的#address-cells=<2>和#size-cells=<1>；决定了其下的ethernet、i2c、flash的reg字段形如reg=<0 0 0x1000>；、reg=<1 0 0x1000>；和reg=<2 0 0x4000000>；。其中，address字段长度为2，开始的第一个cell（即“<”后的0、1、2）是对应的片选，第2个cell（即<0 0 0x1000>、<1 0 0x1000>和<2 00x1000000>中间的0，0，0）是相对该片选的基地址，第3个cell（即“>”前的0x1000、0x1000、0x1000000）为length。
+external-bus节点的#address-cells=<2>和#size-cells=<1>；决定了其下的ethernet、i2c、flash的reg字段形如reg=<0 0 0x1000>；、reg=<1 0 0x1000>；和reg=<2 0 0x4000000>；。其中，address字段长度为2，开始的第一个cell(即“<”后的0、1、2)是对应的片选，第2个cell(即<0 0 0x1000>、<1 0 0x1000>和<2 00x1000000>中间的0，0，0)是相对该片选的基地址，第3个cell(即“>”前的0x1000、0x1000、0x1000000)为length。
 
 特别要留意的是i2c节点中定义的#address-cells=<1>；和#size-cells=<0>；，其作用到了I2C总线上连接的RTC，它的address字段为0x58，是RTC设备的I2C地址。
 
@@ -712,7 +712,7 @@ ranges是地址转换表，其中的每个项目是一个子地址、父地址�
 
 在整个设备树中，与中断相关的属性还包括：
 
-- interrupt-parent：设备节点通过它来指定它所依附的中断控制器的phandle，当节点没有指定interruptparent时，则从父级节点继承。对于本例（代码清单18.2）而言，根节点指定了interrupt-parent=<&intc>；，其对应于intc：interrupt-controller@10140000，而根节点的子节点并未指定interrupt-parent，因此它们都继承了intc，即位于0x10140000的中断控制器中。
+- interrupt-parent：设备节点通过它来指定它所依附的中断控制器的phandle，当节点没有指定interruptparent时，则从父级节点继承。对于本例(代码清单18.2)而言，根节点指定了interrupt-parent=<&intc>；，其对应于intc：interrupt-controller@10140000，而根节点的子节点并未指定interrupt-parent，因此它们都继承了intc，即位于0x10140000的中断控制器中。
 - interrupts：用到了中断的设备节点，通过它指定中断号、触发方法等，这个属性具体含有多少个cell，由它依附的中断控制器节点的#interrupt-cells属性决定。而每个cell具体又是什么含义，一般由驱动的实现决定，而且也会在设备树的绑定文档中说明。
 
 譬如，对于ARM GIC中断控制器而言，#interrupt-cells为3，3个cell的具体含义在Documentation/devicetree/bindings/arm/gic.txt中就有如下文字说明：
@@ -727,7 +727,7 @@ ranges是地址转换表，其中的每个项目是一个子地址、父地址�
 int platform_get_irq(struct platform_device *dev, unsigned int num);
 ```
 
-当然在.dts文件中可以对中断进行命名，而后在驱动中通过platform_get_irq_byname（）来获取对应的中断号。譬如下面代码演示了在drivers/dma/fsl-edma.c中通过platform_get_irq_byname（）获取IRQ，以及arch/arm/boot/dts/vf610.dtsi与fsl-edma驱动对应节点的中断描述。
+当然在.dts文件中可以对中断进行命名，而后在驱动中通过platform_get_irq_byname()来获取对应的中断号。譬如下面代码演示了在drivers/dma/fsl-edma.c中通过platform_get_irq_byname()获取IRQ，以及arch/arm/boot/dts/vf610.dtsi与fsl-edma驱动对应节点的中断描述。
 
 ```c
 static int
@@ -753,7 +753,7 @@ edma0: dma-controller@40018000 {
 };
 ```
 
-第4行、第5行的platform_get_irq_byname（）的第2个参数与.dts中的interrupt-names是一致的。
+第4行、第5行的platform_get_irq_byname()的第2个参数与.dts中的interrupt-names是一致的。
 
 ### 2.7 GPIO、时钟、pinmux连接
 
@@ -809,13 +809,13 @@ wp_gpio = of_get_named_gpio(np, "wp-gpios", 0);
 power_gpio = of_get_named_gpio(np, "power-gpios", 0);
 ```
 
-of_get_named_gpio（）这个API的原型如下：
+of_get_named_gpio()这个API的原型如下：
 
 ```c
 static inline int of_get_named_gpio(struct device_node *np, const char *propname, int index);
 ```
 
-在.dts和设备驱动不关心GPIO名字的情况下，也可以直接通过of_get_gpio（）获取GPIO，此函数原型为：
+在.dts和设备驱动不关心GPIO名字的情况下，也可以直接通过of_get_gpio()获取GPIO，此函数原型为：
 
 ```c
 static inline int of_get_gpio(struct device_node *np, int index);
@@ -859,7 +859,7 @@ clocks = <&clks 138>, <&clks 140>, <&clks 141>;
 clock-names = "uart", "general", "noc";
 ```
 
-而驱动中则使用上述的clock-names属性作为clk_get（）或devm_clk_get（）的第二个参数来申请时钟，譬如获取第2个时钟：
+而驱动中则使用上述的clock-names属性作为clk_get()或devm_clk_get()的第二个参数来申请时钟，譬如获取第2个时钟：
 
 ```c
 devm_clk_get(&pdev->dev, "general");
@@ -966,7 +966,7 @@ static struct platform_device xxx_device = {
 
 之类的platform_device代码都不再需要，其中platform_device会由内核自动展开。而这些resource实际来源于.dts中设备节点的reg、interrupts属性。
 
-典型的，大多数总线都与“simple_bus”兼容，而在与SoC对应的设备的.init_machine成员函数中，调用of_platform_bus_probe（NULL，xxx_of_bus_ids，NULL）；即可自动展开所有的platform_device。
+典型的，大多数总线都与“simple_bus”兼容，而在与SoC对应的设备的.init_machine成员函数中，调用of_platform_bus_probe(NULL，xxx_of_bus_ids，NULL)；即可自动展开所有的platform_device。
 
 ### 3.2 注册i2c_board_info，指定IRQ等板级信息
 
@@ -998,7 +998,7 @@ i2c@1,0 {
 };
 ```
 
-设备树中的I2C客户端会通过在I2C host驱动的probe（）函数中调用的of_i2c_register_devices（&i2c_dev->adapter）；被自动展开。
+设备树中的I2C客户端会通过在I2C host驱动的probe()函数中调用的of_i2c_register_devices(&i2c_dev->adapter)；被自动展开。
 
 ### 3.3 注册spi_board_info，指定IRQ等板级信息
 
@@ -1016,7 +1016,7 @@ static struct spi_board_info afeb9260_spi_devices[] = {
 };
 ```
 
-之类的spi_board_info代码目前不再需要出现，与I2C类似，现在只需要把mtd_dataflash之类的节点作为SPI控制器的子节点即可，SPI host驱动的probe（）函数通过spi_register_master（）注册主机的时候，会自动展开依附于它的从机，spear1310-evb.dts中的st，m25p80SPI接口的NOR Flash节点如下：
+之类的spi_board_info代码目前不再需要出现，与I2C类似，现在只需要把mtd_dataflash之类的节点作为SPI控制器的子节点即可，SPI host驱动的probe()函数通过spi_register_master()注册主机的时候，会自动展开依附于它的从机，spear1310-evb.dts中的st，m25p80SPI接口的NOR Flash节点如下：
 
 ```dtd
 spi0: spi@e0100000 {
@@ -1037,7 +1037,7 @@ spi0: spi@e0100000 {
 
 ### 3.5 设备和驱动的匹配方式
 
-使用设备树后，驱动需要与在.dts中描述的设备节点进行匹配，从而使驱动的probe（）函数执行。新的驱动、设备的匹配变成了设备树节点的兼容属性和设备驱动中的OF匹配表的匹配。
+使用设备树后，驱动需要与在.dts中描述的设备节点进行匹配，从而使驱动的probe()函数执行。新的驱动、设备的匹配变成了设备树节点的兼容属性和设备驱动中的OF匹配表的匹配。
 
 #### 使用设备树之前的匹配方式
 
