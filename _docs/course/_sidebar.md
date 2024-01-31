@@ -10,3 +10,4 @@
       - [异常与中断的概念及处理流程](/_docs/course/100ask/driver_summa/interrupt/01_异常与中断的概念及处理流程.md)
       - [Linux内核对中断的处理](/_docs/course/100ask/driver_summa/interrupt/02_Linux内核对中断的处理.md)
       - [中断的硬件框架](/_docs/course/100ask/driver_summa/interrupt/09_中断的硬件框架.md)
+      - [GIC介绍与编程](/_docs/course/100ask/driver_summa/interrupt/10_GIC介绍与编程.md)
