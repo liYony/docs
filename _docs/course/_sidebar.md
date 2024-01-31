@@ -9,3 +9,4 @@
     - **中断子系统**
       - [异常与中断的概念及处理流程](/_docs/course/100ask/driver_summa/interrupt/01_异常与中断的概念及处理流程.md)
       - [Linux内核对中断的处理](/_docs/course/100ask/driver_summa/interrupt/02_Linux内核对中断的处理.md)
+      - [中断的硬件框架](/_docs/course/100ask/driver_summa/interrupt/09_中断的硬件框架.md)
