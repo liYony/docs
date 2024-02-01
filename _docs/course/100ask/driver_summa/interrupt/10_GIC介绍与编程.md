@@ -310,7 +310,7 @@ F = m mod 16。
 | [7:4]  | ArchRev | R    | 该字段的值取决于GIC架构版本：  0x1：GICv1；  0x2：GICv2。 |
 | [3:0]  | -       | R/W  | 由实现定义                                                |
 
-### 1.2.2 CPU interface寄存器描述
+### 2.2 CPU interface寄存器描述
 
 #### 1. **CPU Interface Control Register, GICC_CTLR**
 
@@ -389,7 +389,7 @@ CPU读此寄存器，获得当前中断的interrtup ID。
 | [12:10] | CPUID    | W    | 对于SGI类中断，它的值跟GICD_IAR. CPUID的相同。 |
 | [9:0]   | EOIINTID | W    | 中断ID，它的值跟GICD_IAR里的中断ID相同         |
 
-## 1.3 GIC编程
+## 3 GIC编程
 
 使用cortex A7处理器的芯片，一般都是使用GIC v2的中断控制器。
 处理GIC的基地址不一样外，对GIC的操作都是一样的。
