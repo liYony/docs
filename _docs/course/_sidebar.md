@@ -17,3 +17,5 @@
       - [两类中断控制器处理流程_链式和层级](/_docs/course/100ask/driver_summa/interrupt/14_两类中断控制器处理流程_链式和层级.md)
       - [链式中断控制器驱动程序编写](/_docs/course/100ask/driver_summa/interrupt/15_链式中断控制器驱动程序编写.md)
       - [legacy方式代码的上机实验](/_docs/course/100ask/driver_summa/interrupt/16_legacy方式代码的上机实验.md)
+      - [链式中断控制器驱动程序编写_linear方式](/_docs/course/100ask/driver_summa/interrupt/17_链式中断控制器驱动程序编写_linear方式.md)
+      - [层级中断控制器驱动程序编写](/_docs/course/100ask/driver_summa/interrupt/18_层级中断控制器驱动程序编写.md)
