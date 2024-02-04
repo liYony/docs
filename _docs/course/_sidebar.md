@@ -6,6 +6,16 @@
     - [串口移植](/_docs/course/100ask/rt-smart/04_串口移植.md)
     - [系统时钟](/_docs/course/100ask/rt-smart/05_系统时钟.md)
   - **Linux驱动大全**
+    - **Pinctrl子系统**
+      - [Pinctrl子系统视频介绍](/_docs/course/100ask/driver_summa/pinctrl/01_Pinctrl子系统视频介绍.md)
+      - [需要掌握的重要概念](/_docs/course/100ask/driver_summa/pinctrl/02_需要掌握的重要概念.md)
+      - [Pinctrl子系统使用示例(IMX6ULL)](/_docs/course/100ask/driver_summa/pinctrl/03_Pinctrl子系统使用示例_基于IMX6ULL.md)
+      - [Pinctrl子系统使用示例(STM32MP157)](/_docs/course/100ask/driver_summa/pinctrl/03_Pinctrl子系统使用示例_基于STM32MP157.md)
+      - [Pinctrl子系统主要数据结构](/_docs/course/100ask/driver_summa/pinctrl/04_Pinctrl子系统主要数据结构.md)
+      - [Pincontroller构造过程情景分析(IMX6ULL)](/_docs/course/100ask/driver_summa/pinctrl/05_Pincontroller构造过程情景分析_基于IMX6ULL.md)
+      - [client端使用pinctrl过程的情景分析(IMX6ULL)](/_docs/course/100ask/driver_summa/pinctrl/06_client端使用pinctrl过程的情景分析_基于IMX6ULL.md)
+      - [编写虚拟的Pinctrl驱动程序](/_docs/course/100ask/driver_summa/pinctrl/07_编写虚拟的Pinctrl驱动程序.md)
+      - [调试虚拟的Pinctrl驱动程序](/_docs/course/100ask/driver_summa/pinctrl/08_调试虚拟的Pinctrl驱动程序.md)
     - **中断子系统**
       - [异常与中断的概念及处理流程](/_docs/course/100ask/driver_summa/interrupt/01_异常与中断的概念及处理流程.md)
       - [Linux内核对中断的处理](/_docs/course/100ask/driver_summa/interrupt/02_Linux内核对中断的处理.md)
