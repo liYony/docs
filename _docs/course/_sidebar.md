@@ -30,3 +30,8 @@
       - [链式中断控制器驱动程序编写_linear方式](/_docs/course/100ask/driver_summa/interrupt/17_链式中断控制器驱动程序编写_linear方式.md)
       - [层级中断控制器驱动程序编写](/_docs/course/100ask/driver_summa/interrupt/18_层级中断控制器驱动程序编写.md)
       - [层级中断控制器驱动程序上机实验](/_docs/course/100ask/driver_summa/interrupt/19_层级中断控制器驱动程序上机实验.md)
+
+- **正点原子**
+  - **IMX6ULL嵌入式Linux驱动**
+    - [Cortex-A7 MPCore架构](/_docs/course/alientek/imx6ull_linux/Cortex-A7_MPCore架构.md)
+    - [I.MX6ULL启动方式](/_docs/course/alientek/imx6ull_linux/I.MX6ULL启动方式.md)

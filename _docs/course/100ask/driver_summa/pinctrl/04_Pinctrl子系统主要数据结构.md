@@ -198,8 +198,6 @@ really_probe
 
 ## 5 补充资料
 
-![image-20240204233709056](figures/image-20240204233709056.png)
-
 ![image-20240204233933696](figures/image-20240204233933696.png)
 
 ![image-20240204234408387](figures/image-20240204234408387.png)
