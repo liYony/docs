@@ -1,4 +1,10 @@
 - **百问网**
+  - **设备树**
+    - [设备树的引进与体验](/_docs/course/100ask/devicetree/01_设备树的引进与体验.md)
+    - [设备树的规范(dts和dtb)](/_docs/course/100ask/devicetree/02_设备树的规范(dts和dtb).md)
+    - [内核对设备树的处理](/_docs/course/100ask/devicetree/03_内核对设备树的处理.md)
+    - [uboot对设备树的支持](/_docs/course/100ask/devicetree/04_uboot对设备树的支持.md)
+    - [中断系统中的设备树](/_docs/course/100ask/devicetree/05_中断系统中的设备树.md)
   - **rt-smart**
     - [移植rt-smart需要做的事](/_docs/course/100ask/rt-smart/01_移植rt-smart需要做的事.md)
     - [内核的启动流程](/_docs/course/100ask/rt-smart/02_内核的启动流程.md)
