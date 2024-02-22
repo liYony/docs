@@ -95,3 +95,93 @@ JZ2440内存使用情况：
 
 ## 2 dtb的修改原理
 
+### 2.1 在dtb文件中修改某个属性
+
+先来回顾一下dtb文件中，**属性是怎么保存的**：
+
+首先是表示**属性开始**的token **FDT_PROP**（0x00000003）；然后是**描述该属性信息的extra data**（len+nameoff）；最后是**value**，也就是**属性值**，属性值的长度就是**len**。
+
+```c
+struct {
+    uint32_t len;        //以字节为单位记录了属性值的长度（长度可能为0，表示一个空值）；
+    uint32_t nameoff;    //表示属性名在string block中的偏移位置；
+};
+```
+
+| 0x00000003 | FDT_PROP                      |
+| ---------- | ----------------------------- |
+| len        | 属性的长度。                  |
+| nameoff    | 属性名称在DTB文件中的偏移值。 |
+| value      | 属性的内容，长度为len字节     |
+
+那么，**如何修改这个属性的值呢**？
+
+假设，**旧值长度**为**len**，**新值长度**为**new_len**，且**new_len > len**。
+
+那么，需要把原来的val所占的空间**扩展**一下，扩展为**new_len**；并且，在原来的val后面的数据，都需要往后移动一下，移动的长度为**（new_len - len）**；移动之后，就可以把新的val写入了。
+
+同时，属性值的长度也要更新为**new_len**。
+
+另外，**头部信息**也需要**同步修改**。
+
+```c
+struct fdt_header {
+	fdt32_t magic;			 /* magic word FDT_MAGIC */
+	fdt32_t totalsize;		 /* total size of DT block */
+	fdt32_t off_dt_struct;		 /* offset to structure */
+	fdt32_t off_dt_strings;		 /* offset to strings */
+	fdt32_t off_mem_rsvmap;		 /* offset to memory reserve map */
+	fdt32_t version;		 /* format version */
+	fdt32_t last_comp_version;	 /* last compatible version */
+ 
+	/* version 2 fields below */
+	fdt32_t boot_cpuid_phys;	 /* Which physical CPU id we're
+					    booting on */
+	/* version 3 fields below */
+	fdt32_t size_dt_strings;	 /* size of the strings block */
+	/* version 17 fields below */
+	fdt32_t size_dt_struct;		 /* size of the structure block */
+};
+```
+
+| 成员              | 是否更改 | 描述                                        |
+| ----------------- | -------- | ------------------------------------------- |
+| magic             | 否       |                                             |
+| totalsize         | 是       | 总大小增加了（new_len - len）字节；         |
+| off_dt_struct     | 否       |                                             |
+| off_dt_strings    | 是       | 偏移值增加了（new_len - len）字节；         |
+| off_mem_rsvmap    | 否       |                                             |
+| version           | 否       |                                             |
+| last_comp_version | 否       |                                             |
+| boot_cpuid_phys   | 否       |                                             |
+| size_dt_strings   | 否       |                                             |
+| size_dt_struct    | 是       | struct块的size增加了（new_len - len）字节； |
+
+总结一下，修改属性的值，老值为len，新值为new_len，且new_len > len，需要以下几步：
+
+- 把原属性val所占空间从len字节扩展为new_len字节：
+- 把老值之后的所有内容向后移动(new_len - len)字节；
+- 把新值写入val所占的newlen字节空间，更新属性值的长度信息；
+- 修改dtb头部信息中structure block的长度: size_dt_struct；
+- 修改dtb头部信息中string block的偏移值: off_dt_strings；
+- 修改dtb头部信息中的总长度: totalsize；
+- 在dtb文件中增加一个新的属性
+
+### 2.2 在dtb文件中增加一个新的属性
+
+了解了dtb文件中属性的修改原理之后，其实其他的操作也是类似的。
+
+比如，在某个节点中增加一个新的属性。
+
+- 如果在string block中没有这个属性的名字，就在string block尾部添加一个新字符串：属性的名字；并且修改dtb头部信息中string block的长度：size_dt_strings；修改dtb头部信息中的总长度: totalsize；
+- 找到属性所在节点, 在节点尾部扩展一块空间, 内容及长度为(12+len)：
+  TAG      // 4字节, 对应0x00000003
+  len      // 4字节, 表示属性的val的长度
+  nameoff  // 4字节, 表示属性名的offset
+  val      // len字节, 用来存放val
+- 修改dtb头部信息中structure block的长度: size_dt_struct；
+- 修改dtb头部信息中string block的偏移值: off_dt_strings；
+- 修改dtb头部信息中的总长度: totalsize；
+
+### 2.3 代码分析
+
