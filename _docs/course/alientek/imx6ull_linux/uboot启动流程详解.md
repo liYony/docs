@@ -1,7 +1,5 @@
 # uboot启动流程详解
 
-## 
-
 ```c
 _start:
 
@@ -775,17 +773,25 @@ copy_loop:
 	ldr	r2, =__rel_dyn_start	/* r2 <- SRC &__rel_dyn_start */
 	ldr	r3, =__rel_dyn_end	/* r3 <- SRC &__rel_dyn_end */
 fixloop:
+	/* r0为Label，r1为Flag */
 	ldmia	r2!, {r0-r1}		/* (r0,r1) <- (SRC location,fixup) */
+	/* 取r1中的低8位 */
 	and	r1, r1, #0xff
+	/* 判断r1是否等于0x17，不等于则执行fixnext函数 */
 	cmp	r1, #23			/* relative fixup? */
 	bne	fixnext
 
 	/* relative fix: increase location by offset */
+	/* r0 = Label + offset */
 	add	r0, r0, r4
+	/* 读取拷贝代码后Label+offset地址处的值，该值也就是拷贝代码前的值 */
 	ldr	r1, [r0]
+	/* Label+offset地址处的值 = (Label+offset地址处的值) + offset */
 	add	r1, r1, r4
+	/* 将Label+offset地址处的值加上offset的值重新写入Label+offset地址 */
 	str	r1, [r0]
 fixnext:
+	/* .rel.dyn段是否处理完成 */
 	cmp	r2, r3
 	blo	fixloop
 
@@ -809,5 +815,134 @@ relocate_done:
 #endif
 
 ENDPROC(relocate_code)
+```
 
+```c
+ENTRY(relocate_vectors)
+
+#ifdef CONFIG_CPU_V7M
+	/*
+	 * On ARMv7-M we only have to write the new vector address
+	 * to VTOR register.
+	 */
+	ldr	r0, [r9, #GD_RELOCADDR]	/* r0 = gd->relocaddr */
+	ldr	r1, =V7M_SCB_BASE
+	str	r0, [r1, V7M_SCB_VTOR]
+#else
+#ifdef CONFIG_HAS_VBAR
+	/*
+	 * If the ARM processor has the security extensions,
+	 * use VBAR to relocate the exception vectors.
+	 */
+	// 很简单，就是修改CP15的 VBAR寄存器，也就是将新的向量表首地址写入到寄存器VBAR中，设置向量表偏移。
+	ldr	r0, [r9, #GD_RELOCADDR]	/* r0 = gd->relocaddr */
+	mcr     p15, 0, r0, c12, c0, 0  /* Set VBAR */
+#else
+	/*
+	 * Copy the relocated exception vectors to the
+	 * correct address
+	 * CP15 c1 V bit gives us the location of the vectors:
+	 * 0x00000000 or 0xFFFF0000.
+	 */
+	ldr	r0, [r9, #GD_RELOCADDR]	/* r0 = gd->relocaddr */
+	mrc	p15, 0, r2, c1, c0, 0	/* V bit (bit[13]) in CP15 c1 */
+	ands	r2, r2, #(1 << 13)
+	ldreq	r1, =0x00000000		/* If V=0 */
+	ldrne	r1, =0xFFFF0000		/* If V=1 */
+	ldmia	r0!, {r2-r8,r10}
+	stmia	r1!, {r2-r8,r10}
+	ldmia	r0!, {r2-r8,r10}
+	stmia	r1!, {r2-r8,r10}
+#endif
+#endif
+	bx	lr
+
+ENDPROC(relocate_vectors)
+```
+
+```c
+void board_init_r(gd_t *new_gd, ulong dest_addr)
+{
+#ifdef CONFIG_NEEDS_MANUAL_RELOC
+	int i;
+#endif
+
+#ifdef CONFIG_AVR32
+	mmu_init_r(dest_addr);
+#endif
+
+#if !defined(CONFIG_X86) && !defined(CONFIG_ARM) && !defined(CONFIG_ARM64)
+	gd = new_gd;
+#endif
+
+#ifdef CONFIG_NEEDS_MANUAL_RELOC
+	for (i = 0; i < ARRAY_SIZE(init_sequence_r); i++)
+		init_sequence_r[i] += gd->reloc_off;
+#endif
+
+	if (initcall_run_list(init_sequence_r))
+		hang();
+
+	/* NOTREACHED - run_main_loop() does not return */
+	hang();
+}
+```
+
+```c
+init_fnc_t init_sequence_r[] = {
+    // 初始化和调试跟踪相关的内容
+    initr_trace,
+    // 用于设置gd->flags，标记重定位完成
+    initr_reloc,
+    // 初始化cache，使能cache
+    initr_caches,
+    // 初始化重定位后gd的一些成员变量
+    initr_reloc_global_data,
+    initr_barrier,
+    // 初始化malloc
+    initr_malloc,
+    // 初始化控制台相关内容
+    initr_console_record,
+    // 启动转台重定位
+    bootstage_relocate,
+    initr_bootstage,
+    // 板级初始化，包括74xx芯片，I2C，FEC，USB和QSPI等
+    board_init, /* Setup chipselects */
+    // stdio初始化
+    stdio_init_tables,
+    // 初始化串口
+    initr_serial,
+    // 与调试有关，通知已经在RAM中运行
+    initr_announce,
+    INIT_FUNC_WATCHDOG_RESET
+    INIT_FUNC_WATCHDOG_RESET
+    INIT_FUNC_WATCHDOG_RESET
+    // 初始化电源芯片
+    power_init_board,
+    initr_flash,
+    INIT_FUNC_WATCHDOG_RESET
+    // 初始化nand和emmc
+    initr_nand,
+    initr_mmc,
+    // 初始化环境变量
+    initr_env,
+    INIT_FUNC_WATCHDOG_RESET
+    // 初始化其他核
+    initr_secondary_cpu,
+    INIT_FUNC_WATCHDOG_RESET
+    stdio_add_devices,
+    initr_jumptable,
+    console_init_r, /* fully init console as a device */
+    INIT_FUNC_WATCHDOG_RESET
+    interrupt_init,
+    initr_enable_interrupts,
+    initr_ethaddr,
+    board_late_init,
+    INIT_FUNC_WATCHDOG_RESET
+    INIT_FUNC_WATCHDOG_RESET
+    INIT_FUNC_WATCHDOG_RESET
+    initr_net,
+    INIT_FUNC_WATCHDOG_RESET
+    run_main_loop,
+};
 ```
