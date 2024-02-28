@@ -41,3 +41,4 @@
   - **IMX6ULL嵌入式Linux驱动**
     - [Cortex-A7 MPCore架构](/_docs/course/alientek/imx6ull_linux/Cortex-A7_MPCore架构.md)
     - [I.MX6ULL启动方式](/_docs/course/alientek/imx6ull_linux/I.MX6ULL启动方式.md)
+    - [U-boot启动流程详解](/_docs/course/alientek/imx6ull_linux/uboot启动流程详解.md)
