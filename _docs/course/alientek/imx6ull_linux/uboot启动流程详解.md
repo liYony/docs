@@ -1,5 +1,7 @@
 # uboot启动流程详解
 
+## _start
+
 ```c
 _start:
 
@@ -17,17 +19,23 @@ _start:
 	ldr	pc, _fiq
 ```
 
+## reset
+
 ```c
 reset:
 	/* Allow the board to save important registers */
 	b	save_boot_params
 ```
 
+## save_boot_params
+
 ```c
 ENTRY(save_boot_params)
 	b	save_boot_params_ret		@ back to my caller
 ENDPROC(save_boot_params)
 ```
+
+## save_boot_params_ret
 
 ```c
 save_boot_params_ret:
@@ -80,153 +88,81 @@ save_boot_params_ret:
 	bl	_main
 ```
 
+## cpu_init_cp15
+
 ```c
 ENTRY(cpu_init_cp15)
 	/*
 	 * Invalidate L1 I/D
 	 */
-	mov	r0, #0			@ set up for MCR
-	mcr	p15, 0, r0, c8, c7, 0	@ invalidate TLBs
-	mcr	p15, 0, r0, c7, c5, 0	@ invalidate icache
-	mcr	p15, 0, r0, c7, c5, 6	@ invalidate BP array
-	mcr     p15, 0, r0, c7, c10, 4	@ DSB
-	mcr     p15, 0, r0, c7, c5, 4	@ ISB
-
+	mov r0, #0          @ set up for MCR
+	mcr p15, 0, r0, c8, c7, 0   @ invalidate TLBs　　/*禁止从TLB中取地址描述符,也就是禁止虚拟地址到物理地址的转换，因为刚开始操作的都是物理寄存器！*/
+	mcr p15, 0, r0, c7, c5, 0   @ invalidate icache /*关闭指令cache*/
+	mcr p15, 0, r0, c7, c5, 6   @ invalidate BP array　/*关闭分支预测*/
+	mcr     p15, 0, r0, c7, c10, 4  @ DSB　/*多核cpu之间进行数据同步*/
+	mcr     p15, 0, r0, c7, c5, 4   @ ISB　/*进行指令同步，放弃流水线中已经取到的指令，重新取指令*/	
 	/*
 	 * disable MMU stuff and caches
 	 */
-	mrc	p15, 0, r0, c1, c0, 0
-	bic	r0, r0, #0x00002000	@ clear bits 13 (--V-)
-	bic	r0, r0, #0x00000007	@ clear bits 2:0 (-CAM)
-	orr	r0, r0, #0x00000002	@ set bit 1 (--A-) Align
-	orr	r0, r0, #0x00000800	@ set bit 11 (Z---) BTB
+	/*******************************************************
+	*1、为什么要关闭mmu？
+	*因为MMU是把虚拟地址转化为物理地址得作用
+	*而我们现在是要设置控制寄存器，而控制寄存器本来就是实地址（物理地址），
+	*再使能MMU，不就是多此一举了吗？
+	********************************************************/	
+	/******************************************************************
+	*2、为什么要关闭cache？
+	*catch和MMU是通过CP15管理的，刚上电的时候，CPU还不能管理他们。
+	*所以上电的时候MMU必须关闭，指令cache可关闭，可不关闭，但数据cache一定要关闭
+	*否则可能导致刚开始的代码里面，去取数据的时候，从catch里面取，
+	*而这时候RAM中数据还没有cache过来，导致数据预取异常
+	*******************************************************************/
+    mrc p15, 0, r0, c1, c0, 0
+    bic r0, r0, #0x00002000 @ clear bits 13 (--V-)　/*设置成正常异常模式，即异常向量表的基地址为0x00000000*/
+    bic r0, r0, #0x00000007 @ clear bits 2:0 (-CAM) /*关闭指令cache,关闭指令对齐检测，关闭mmu*/
+    orr r0, r0, #0x00000002 @ set bit 1 (--A-) Align /*使能对齐检测*/
+    orr r0, r0, #0x00000800 @ set bit 11 (Z---) BTB /*使能分支预测*/
 #ifdef CONFIG_SYS_ICACHE_OFF
-	bic	r0, r0, #0x00001000	@ clear bit 12 (I) I-cache
+    bic r0, r0, #0x00001000 @ clear bit 12 (I) I-cache
 #else
-	orr	r0, r0, #0x00001000	@ set bit 12 (I) I-cache
+    orr r0, r0, #0x00001000 @ set bit 12 (I) I-cache　/*时能指令cache*/
 #endif
-	mcr	p15, 0, r0, c1, c0, 0
+    mcr p15, 0, r0, c1, c0, 0
 
 #ifdef CONFIG_ARM_ERRATA_716044
-	mrc	p15, 0, r0, c1, c0, 0	@ read system control register
-	orr	r0, r0, #1 << 11	@ set bit #11
-	mcr	p15, 0, r0, c1, c0, 0	@ write system control register
+    mrc p15, 0, r0, c1, c0, 0   @ read system control register
+    orr r0, r0, #1 << 11    @ set bit #11
+    mcr p15, 0, r0, c1, c0, 0   @ write system control register
 #endif
 
 #if (defined(CONFIG_ARM_ERRATA_742230) || defined(CONFIG_ARM_ERRATA_794072))
-	mrc	p15, 0, r0, c15, c0, 1	@ read diagnostic register
-	orr	r0, r0, #1 << 4		@ set bit #4
-	mcr	p15, 0, r0, c15, c0, 1	@ write diagnostic register
+    mrc p15, 0, r0, c15, c0, 1  @ read diagnostic register
+    orr r0, r0, #1 << 4     @ set bit #4
+    mcr p15, 0, r0, c15, c0, 1  @ write diagnostic register
 #endif
 
 #ifdef CONFIG_ARM_ERRATA_743622
-	mrc	p15, 0, r0, c15, c0, 1	@ read diagnostic register
-	orr	r0, r0, #1 << 6		@ set bit #6
-	mcr	p15, 0, r0, c15, c0, 1	@ write diagnostic register
+    mrc p15, 0, r0, c15, c0, 1  @ read diagnostic register
+    orr r0, r0, #1 << 6     @ set bit #6
+    mcr p15, 0, r0, c15, c0, 1  @ write diagnostic register
 #endif
 
 #ifdef CONFIG_ARM_ERRATA_751472
-	mrc	p15, 0, r0, c15, c0, 1	@ read diagnostic register
-	orr	r0, r0, #1 << 11	@ set bit #11
-	mcr	p15, 0, r0, c15, c0, 1	@ write diagnostic register
+    mrc p15, 0, r0, c15, c0, 1  @ read diagnostic register
+    orr r0, r0, #1 << 11    @ set bit #11
+    mcr p15, 0, r0, c15, c0, 1  @ write diagnostic register
 #endif
 #ifdef CONFIG_ARM_ERRATA_761320
-	mrc	p15, 0, r0, c15, c0, 1	@ read diagnostic register
-	orr	r0, r0, #1 << 21	@ set bit #21
-	mcr	p15, 0, r0, c15, c0, 1	@ write diagnostic register
-#endif
-#ifdef CONFIG_ARM_ERRATA_845369
-	mrc	p15, 0, r0, c15, c0, 1	@ read diagnostic register
-	orr	r0, r0, #1 << 22	@ set bit #22
-	mcr	p15, 0, r0, c15, c0, 1	@ write diagnostic register
+    mrc p15, 0, r0, c15, c0, 1  @ read diagnostic register
+    orr r0, r0, #1 << 21    @ set bit #21
+    mcr p15, 0, r0, c15, c0, 1  @ write diagnostic register
 #endif
 
-	mov	r5, lr			@ Store my Caller
-	mrc	p15, 0, r1, c0, c0, 0	@ r1 has Read Main ID Register (MIDR)
-	mov	r3, r1, lsr #20		@ get variant field
-	and	r3, r3, #0xf		@ r3 has CPU variant
-	and	r4, r1, #0xf		@ r4 has CPU revision
-	mov	r2, r3, lsl #4		@ shift variant field for combined value
-	orr	r2, r4, r2		@ r2 has combined CPU variant + revision
-
-#ifdef CONFIG_ARM_ERRATA_798870
-	cmp	r2, #0x30		@ Applies to lower than R3p0
-	bge	skip_errata_798870      @ skip if not affected rev
-	cmp	r2, #0x20		@ Applies to including and above R2p0
-	blt	skip_errata_798870      @ skip if not affected rev
-
-	mrc	p15, 1, r0, c15, c0, 0  @ read l2 aux ctrl reg
-	orr	r0, r0, #1 << 7         @ Enable hazard-detect timeout
-	push	{r1-r5}			@ Save the cpu info registers
-	bl	v7_arch_cp15_set_l2aux_ctrl
-	isb				@ Recommended ISB after l2actlr update
-	pop	{r1-r5}			@ Restore the cpu info - fall through
-skip_errata_798870:
-#endif
-
-#ifdef CONFIG_ARM_ERRATA_801819
-	cmp	r2, #0x24		@ Applies to lt including R2p4
-	bgt	skip_errata_801819      @ skip if not affected rev
-	cmp	r2, #0x20		@ Applies to including and above R2p0
-	blt	skip_errata_801819      @ skip if not affected rev
-	mrc	p15, 0, r0, c0, c0, 6	@ pick up REVIDR reg
-	and	r0, r0, #1 << 3		@ check REVIDR[3]
-	cmp	r0, #1 << 3
-	beq	skip_errata_801819	@ skip erratum if REVIDR[3] is set
-
-	mrc	p15, 0, r0, c1, c0, 1	@ read auxilary control register
-	orr	r0, r0, #3 << 27	@ Disables streaming. All write-allocate
-					@ lines allocate in the L1 or L2 cache.
-	orr	r0, r0, #3 << 25	@ Disables streaming. All write-allocate
-					@ lines allocate in the L1 cache.
-	push	{r1-r5}			@ Save the cpu info registers
-	bl	v7_arch_cp15_set_acr
-	pop	{r1-r5}			@ Restore the cpu info - fall through
-skip_errata_801819:
-#endif
-
-#ifdef CONFIG_ARM_ERRATA_454179
-	cmp	r2, #0x21		@ Only on < r2p1
-	bge	skip_errata_454179
-
-	mrc	p15, 0, r0, c1, c0, 1	@ Read ACR
-	orr	r0, r0, #(0x3 << 6)	@ Set DBSM(BIT7) and IBE(BIT6) bits
-	push	{r1-r5}			@ Save the cpu info registers
-	bl	v7_arch_cp15_set_acr
-	pop	{r1-r5}			@ Restore the cpu info - fall through
-
-skip_errata_454179:
-#endif
-
-#ifdef CONFIG_ARM_ERRATA_430973
-	cmp	r2, #0x21		@ Only on < r2p1
-	bge	skip_errata_430973
-
-	mrc	p15, 0, r0, c1, c0, 1	@ Read ACR
-	orr	r0, r0, #(0x1 << 6)	@ Set IBE bit
-	push	{r1-r5}			@ Save the cpu info registers
-	bl	v7_arch_cp15_set_acr
-	pop	{r1-r5}			@ Restore the cpu info - fall through
-
-skip_errata_430973:
-#endif
-
-#ifdef CONFIG_ARM_ERRATA_621766
-	cmp	r2, #0x21		@ Only on < r2p1
-	bge	skip_errata_621766
-
-	mrc	p15, 0, r0, c1, c0, 1	@ Read ACR
-	orr	r0, r0, #(0x1 << 5)	@ Set L1NEON bit
-	push	{r1-r5}			@ Save the cpu info registers
-	bl	v7_arch_cp15_set_acr
-	pop	{r1-r5}			@ Restore the cpu info - fall through
-
-skip_errata_621766:
-#endif
-
-	mov	pc, r5			@ back to my caller
+    mov pc, lr          @ back to my caller　/*程序返回*/
 ENDPROC(cpu_init_cp15)
 ```
+
+## cpu_init_crit
 
 ```c
 ENTRY(cpu_init_crit)
@@ -239,6 +175,8 @@ ENTRY(cpu_init_crit)
 	b	lowlevel_init		@ go setup pll,mux,memory
 ENDPROC(cpu_init_crit)
 ```
+
+## lowlevel_init
 
 ```c
 ENTRY(lowlevel_init)
@@ -312,6 +250,8 @@ ENTRY(lowlevel_init)
 ENDPROC(lowlevel_init)
 ```
 
+## s_init
+
 ```c
 void s_init(void)
 {
@@ -358,6 +298,8 @@ void s_init(void)
 	writel(mask528, &anatop->pfd_528_clr);
 }
 ```
+
+## _main
 
 ```c
 ENTRY(_main)
@@ -429,11 +371,11 @@ ENTRY(_main)
         |          reserve_round_4k=0             |
         |-----------------------------------------|<--- 0xA0000000
         |          reserve_mmu=0x4000             |
-        |              (64K字节对齐)               |
+        |              (64KB alignment)           |
         |-----------------------------------------|<--- 0x9FFF0000
         |                                         |
         |          reserve_uboot=0xA8EF4          |
-        |               (4K字节对齐)               |
+        |               (4KB alignment)           |
         |                                         |
         |-----------------------------------------|<--- 0x9FF47000 ----- gd->relocaddr
         |                                         |
@@ -567,6 +509,8 @@ clbss_l:cmp	r0, r1			/* while not at end of BSS */
 ENDPROC(_main)
 ```
 
+## board_init_f
+
 ```c
 void board_init_f(ulong boot_flags)
 {
@@ -603,6 +547,8 @@ void board_init_f(ulong boot_flags)
 }
 ```
 
+## initcall_run_list
+
 ```c
 int initcall_run_list(const init_fnc_t init_sequence[])
 {
@@ -633,6 +579,8 @@ int initcall_run_list(const init_fnc_t init_sequence[])
 	return 0;
 }
 ```
+
+## init_sequence_f[]
 
 ```c
 static init_fnc_t init_sequence_f[] = {
@@ -751,6 +699,8 @@ static init_fnc_t init_sequence_f[] = {
 };
 ```
 
+## relocate_code
+
 ```c
 ENTRY(relocate_code)
     // __image_copy_start = 0X87800000
@@ -817,6 +767,8 @@ relocate_done:
 ENDPROC(relocate_code)
 ```
 
+## relocate_vectors
+
 ```c
 ENTRY(relocate_vectors)
 
@@ -860,6 +812,8 @@ ENTRY(relocate_vectors)
 ENDPROC(relocate_vectors)
 ```
 
+## board_init_r
+
 ```c
 void board_init_r(gd_t *new_gd, ulong dest_addr)
 {
@@ -888,6 +842,8 @@ void board_init_r(gd_t *new_gd, ulong dest_addr)
 }
 ```
 
+## init_sequence_r[]
+
 ```c
 init_fnc_t init_sequence_r[] = {
     // 初始化和调试跟踪相关的内容
@@ -903,7 +859,7 @@ init_fnc_t init_sequence_r[] = {
     initr_malloc,
     // 初始化控制台相关内容
     initr_console_record,
-    // 启动转台重定位
+    // 启动状态重定位
     bootstage_relocate,
     initr_bootstage,
     // 板级初始化，包括74xx芯片，I2C，FEC，USB和QSPI等
@@ -930,19 +886,268 @@ init_fnc_t init_sequence_r[] = {
     // 初始化其他核
     initr_secondary_cpu,
     INIT_FUNC_WATCHDOG_RESET
+	// 各种输入输出设备初始化，如LCD。I.MX6ULL使用drv_video_init函数初始化LCD。
     stdio_add_devices,
+	// 初始化跳转表
     initr_jumptable,
+	// 控制台初始化，初始化成功后会调用stdio_print_curennt_devices函数来打印当前的控制台设备。
     console_init_r, /* fully init console as a device */
     INIT_FUNC_WATCHDOG_RESET
+	// 初始化中断系统
     interrupt_init,
+	// 使能中断
     initr_enable_interrupts,
+	// 初始化网络地址，也就是获取MAC地址，读取环境变量<ethaddr>的值
     initr_ethaddr,
+	// 板子后续初始化，函数定义在mx6ull_alientek_emmc.c里面，
     board_late_init,
     INIT_FUNC_WATCHDOG_RESET
     INIT_FUNC_WATCHDOG_RESET
     INIT_FUNC_WATCHDOG_RESET
+	// 初始化网络设备，调用过程如下：
+	// initr_net->eth_initialize->board_eth_init()
     initr_net,
     INIT_FUNC_WATCHDOG_RESET
+	// 主循环，处理命令。
     run_main_loop,
 };
+```
+
+## run_main_loop
+
+```c
+static int run_main_loop(void)
+{
+#ifdef CONFIG_SANDBOX
+	sandbox_main_loop_init();
+#endif
+	/* main_loop() can return to retry autoboot, if so just run it again */
+	for (;;)
+		main_loop();
+	return 0;
+}
+```
+
+## main_loop
+
+```c
+void main_loop(void)
+{
+	const char *s;
+    // 打印启动进度
+	bootstage_mark_name(BOOTSTAGE_ID_MAIN_LOOP, "main_loop");
+
+#ifndef CONFIG_SYS_GENERIC_BOARD
+	puts("Warning: Your board does not use generic board. Please read\n");
+	puts("doc/README.generic-board and take action. Boards not\n");
+	puts("upgraded by the late 2014 may break or be removed.\n");
+#endif
+
+#ifdef CONFIG_VERSION_VARIABLE
+	setenv("ver", version_string);  /* set version variable */
+#endif /* CONFIG_VERSION_VARIABLE */
+    // 跟命令行初始化相关，初始化hush shell相关的变量
+	cli_init();
+    // 获取环境变量preboot的内容，该内容是一些预启动命令，一般不适用该环境变量。
+	run_preboot_environment_command();
+
+#if defined(CONFIG_UPDATE_TFTP)
+	update_tftp(0UL, NULL, NULL);
+#endif /* CONFIG_UPDATE_TFTP */
+    // 读取环境变量boot_delay和bootcmd的内容，然后将bootdelay的值赋值给全局变量stored_bootdelay，返回值为环境变量bootcmd的值。
+	s = bootdelay_process();
+	if (cli_process_fdt(&s))
+		cli_secure_boot_cmd(s);
+
+    // 检查倒计时是否结束？倒计时结束之前有没有被打断？代码主要判断如下(精简代码)：
+    //      - stored_bootdelay != -1        // stored_bootdelay不等于1，即环境变量boot_delay
+    //      - s                             // s不为空，即环境变量bootcmd
+    //      - !abortboot(stored_bootdelay)  // 函数返回值为0
+    //          abortboot->abortboot_normal(bootdelay)
+    //              abortboot_normal函数主要完成以下功能：
+    //                  - 默认返回值设置为0(表示默认会执行run_command_list函数)。
+    //                  - 输出字符串"Hit any key to stop autoboot :"
+    //                  - 判断是否有按键按下
+    //                      - 有按键按下：设置返回值为1，设置bootdelay=0，跳出倒计时循环。
+    //                      - 无按键按下：正常执行完循环，返回值不变还是为0
+    // 如果三个条件同时成立就会执行函数run_command_list函数(autoboot_command函数内)。
+    //      - 主要执行bootcmd环境变量中的值。
+    //
+    // 综上，如果autoboot_command函数没被打断，那么执行run_command_list函数，
+    // 如果被打断了，autoboot_command函数退出，往下执行cli_loop函数。
+	autoboot_command(s);
+
+	cli_loop();
+}
+```
+
+## cli_loop
+
+```c
+void cli_loop(void)
+{
+#ifdef CONFIG_SYS_HUSH_PARSER
+    // 进入
+	parse_file_outer();
+	/* This point is never reached */
+	for (;;);
+#else
+	cli_simple_loop();
+#endif /*CONFIG_SYS_HUSH_PARSER*/
+}
+```
+
+## parse_file_outer
+
+```c
+#ifndef __U_BOOT__
+static int parse_file_outer(FILE *f)
+#else
+int parse_file_outer(void)
+#endif
+{
+	int rcode;
+	struct in_str input;
+#ifndef __U_BOOT__
+	setup_file_in_str(&input, f);
+#else
+    // 初始化input的成员变量
+	setup_file_in_str(&input);
+#endif
+    // hush shell的解释器，负责接收命令行输入，然后解析相应的命令。
+	rcode = parse_stream_outer(&input, FLAG_PARSE_SEMICOLON);
+	return rcode;
+}
+```
+
+## parse_stream_outer
+
+```c
+static int parse_stream_outer(struct in_str *inp, int flag)
+{
+
+	struct p_context ctx;
+	o_string temp=NULL_O_STRING;
+	int rcode;
+#ifdef __U_BOOT__
+	int code = 1;
+#endif
+	// 下面的do-while就是处理输入命令的。
+	do {
+		ctx.type = flag;
+		initialize_context(&ctx);
+		update_ifs_map();
+		if (!(flag & FLAG_PARSE_SEMICOLON) || (flag & FLAG_REPARSING)) mapset((uchar *)";$&|", 0);
+		inp->promptmode=1;
+
+		// 解析命令！！
+		rcode = parse_stream(&temp, &ctx, inp,
+				     flag & FLAG_CONT_ON_NEWLINE ? -1 : '\n');
+#ifdef __U_BOOT__
+		if (rcode == 1) flag_repeat = 0;
+#endif
+		if (rcode != 1 && ctx.old_flag != 0) {
+			syntax();
+#ifdef __U_BOOT__
+			flag_repeat = 0;
+#endif
+		}
+		if (rcode != 1 && ctx.old_flag == 0) {
+			done_word(&temp, &ctx);
+			done_pipe(&ctx,PIPE_SEQ);
+#ifndef __U_BOOT__
+            // 处理解析到的命令函数的调用过程如下：
+            // run_list->run_list_real->run_pipe_real->cmd_process
+            // 最终是调用cmd_process函数来实现处理命令的。
+			run_list(ctx.list_head);
+#else
+			code = run_list(ctx.list_head);
+			if (code == -2) {	/* exit */
+				b_free(&temp);
+				code = 0;
+				/* XXX hackish way to not allow exit from main loop */
+				if (inp->peek == file_peek) {
+					printf("exit not allowed from main input shell.\n");
+					continue;
+				}
+				break;
+			}
+			if (code == -1)
+			    flag_repeat = 0;
+#endif
+		} else {
+			if (ctx.old_flag != 0) {
+				free(ctx.stack);
+				b_reset(&temp);
+			}
+#ifdef __U_BOOT__
+			if (inp->__promptme == 0) printf("<INTERRUPT>\n");
+			inp->__promptme = 1;
+#endif
+			temp.nonnull = 0;
+			temp.quote = 0;
+			inp->p = NULL;
+			free_pipe_list(ctx.list_head,0);
+		}
+		b_free(&temp);
+	/* loop on syntax errors, return on EOF */
+	} while (rcode != -1 && !(flag & FLAG_EXIT_FROM_LOOP) &&
+		(inp->peek != static_peek || b_peek(inp)));
+#ifndef __U_BOOT__
+	return 0;
+#else
+	return (code != 0) ? 1 : 0;
+#endif /* __U_BOOT__ */
+}
+```
+
+## cmd_process
+
+```c
+enum command_ret_t cmd_process(int flag, int argc, char * const argv[],
+			       int *repeatable, ulong *ticks)
+{
+	enum command_ret_t rc = CMD_RET_SUCCESS;
+	cmd_tbl_t *cmdtp;
+
+	/* Look up command in command table */
+    // 在命令表中查找对指定的命令。
+	cmdtp = find_cmd(argv[0]);
+	if (cmdtp == NULL) {
+		printf("Unknown command '%s' - try 'help'\n", argv[0]);
+		return 1;
+	}
+
+	/* found - check max args */
+	if (argc > cmdtp->maxargs)
+		rc = CMD_RET_USAGE;
+
+#if defined(CONFIG_CMD_BOOTD)
+	/* avoid "bootd" recursion */
+	else if (cmdtp->cmd == do_bootd) {
+		if (flag & CMD_FLAG_BOOTD) {
+			puts("'bootd' recursion detected\n");
+			rc = CMD_RET_FAILURE;
+		} else {
+			flag |= CMD_FLAG_BOOTD;
+		}
+	}
+#endif
+
+	/* If OK so far, then do the command */
+	if (!rc) {
+		if (ticks)
+			*ticks = get_timer(0);
+        
+        // 执行具体的命令。
+        // 调用cmdtp->(*cmd)(struct cmd_tbl_s *, int, int, char * const []);成员。
+		rc = cmd_call(cmdtp, flag, argc, argv);
+		if (ticks)
+			*ticks = get_timer(*ticks);
+		*repeatable &= cmdtp->repeatable;
+	}
+	if (rc == CMD_RET_USAGE)
+		rc = cmd_usage(cmdtp);
+	return rc;
+}
 ```
