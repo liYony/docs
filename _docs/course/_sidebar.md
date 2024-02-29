@@ -43,3 +43,4 @@
     - [I.MX6ULL启动方式](/_docs/course/alientek/imx6ull_linux/I.MX6ULL启动方式.md)
     - [U-boot启动流程详解](/_docs/course/alientek/imx6ull_linux/uboot启动流程详解.md)
     - [U-boot重定位原理](/_docs/course/alientek/imx6ull_linux/uboot重定位原理.md)
+    - [bootz启动Linux流程](/_docs/course/alientek/imx6ull_linux/bootz启动Linux流程.md)
