@@ -1,2 +1,4 @@
 - [**Linux开发文档**](/_docs/linux/README.md)
 - [**学习教程笔记**](/_docs/course/README.md)
+- [**读书笔记**](/_docs/books/README.md)
+- [**个人博客**](/_docs/blogs/README.md)
