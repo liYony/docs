@@ -1,5 +1,7 @@
 # RT-Smart应用程序(.elf)文件加载
 
+[RT-Thread-RT-Smart ELF 应用程序加载运行过程分析RT-Thread问答社区 - RT-Thread](https://club.rt-thread.org/ask/article/8fd18929073be592.html)
+
 以下面hello.elf为例：
 
 ```shell
@@ -318,6 +320,45 @@ pid_t lwp_execve(char *filename, int debug, int argc, char **argv, char **envp)
 }
 ```
 
+### 4.1 lwp_user_space_init
+
+```c
+#define USER_VADDR_TOP    0xC0000000UL
+#define USER_HEAP_VEND    0xB0000000UL
+#define USER_HEAP_VADDR   0x80000000UL
+#define USER_STACK_VSTART 0x70000000UL
+#define USER_STACK_VEND   USER_HEAP_VADDR
+#define LDSO_LOAD_VADDR   0x60000000UL
+#define USER_VADDR_START  0x00100000UL
+#define USER_LOAD_VADDR   USER_VADDR_START
+
+int lwp_user_space_init(struct rt_lwp *lwp)
+{
+    return arch_user_space_init(lwp);
+}
+
+int arch_user_space_init(struct rt_lwp *lwp)
+{
+    size_t *mmu_table;
+
+    mmu_table = (size_t*)rt_pages_alloc(2);
+    if (!mmu_table)
+    {
+        return -1;
+    }
+
+    lwp->end_heap = USER_HEAP_VADDR;
+    rt_memcpy(mmu_table + (KERNEL_VADDR_START >> ARCH_SECTION_SHIFT), MMUTable + (KERNEL_VADDR_START >> ARCH_SECTION_SHIFT), ARCH_PAGE_SIZE);
+    rt_memset(mmu_table, 0, 3 * ARCH_PAGE_SIZE);
+    rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, mmu_table, 4 * ARCH_PAGE_SIZE);
+    rt_hw_mmu_map_init(&lwp->mmu_info, (void*)USER_VADDR_START, USER_VADDR_TOP - USER_VADDR_START, mmu_table, PV_OFFSET);
+
+    return 0;
+}
+```
+
+### 4.2 lwp_argscopy
+
 ```c
 static struct process_aux *lwp_argscopy(struct rt_lwp *lwp, int argc, char **argv, char **envp)
 {
@@ -400,5 +441,69 @@ static struct process_aux *lwp_argscopy(struct rt_lwp *lwp, int argc, char **arg
 
     return aux;
 }
+```
+
+### 4.3 lwp_load
+
+```c
+RT_WEAK int lwp_load(const char *filename, struct rt_lwp *lwp, uint8_t *load_addr, size_t addr_size, struct process_aux *aux)
+{
+    uint8_t *ptr;
+    int ret = -1;
+    int len;
+    int fd = -1;
+
+    /* check file name */
+    RT_ASSERT(filename != RT_NULL);
+    /* check lwp control block */
+    RT_ASSERT(lwp != RT_NULL);
+
+    /* copy file name to process name */
+    rt_strncpy(lwp->cmd, filename, RT_NAME_MAX);
+
+    if (load_addr != RT_NULL)
+    {
+        lwp->lwp_type = LWP_TYPE_FIX_ADDR;
+        ptr = load_addr;
+    }
+    else
+    {
+        lwp->lwp_type = LWP_TYPE_DYN_ADDR;
+        ptr = RT_NULL;
+    }
+
+    fd = open(filename, O_BINARY | O_RDONLY, 0);
+    if (fd < 0)
+    {
+        LOG_E("ERROR: Can't open elf file %s!", filename);
+        goto out;
+    }
+    len = lseek(fd, 0, SEEK_END);
+    if (len < 0)
+    {
+        LOG_E("ERROR: File %s size error!", filename);
+        goto out;
+    }
+
+    lseek(fd, 0, SEEK_SET);
+
+    ret = load_elf(fd, len, lwp, ptr, aux);
+    if ((ret != RT_EOK) && (ret != 1))
+    {
+        LOG_E("lwp load ret = %d", ret);
+    }
+
+out:
+    if (fd > 0)
+    {
+        close(fd);
+    }
+    return ret;
+}
+```
+
+#### 4.3.1 load_elf
+
+```c
 ```
 
