@@ -75,6 +75,8 @@ static void *_lwp_map_user(struct rt_lwp *lwp, void *map_va, size_t map_size, in
 
 #### 1.1.1 rt_hw_mmu_map_auto
 
+主要作用：分配size>>12个page内存，然后在mmu_info->vtable中建立对应v_addr的页表映射，有必要的话会分配二级页表的内存(因为一个二级页表只能存放256个对应关系)。
+
 ```c
 void *rt_hw_mmu_map_auto(rt_mmu_info *mmu_info, void *v_addr, size_t size, size_t attr)
 {
