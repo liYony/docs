@@ -15,7 +15,7 @@
 ```
 
 ```c
-// map_va = 0xBFD00234, map_size = 0x00100000
+// map_va = 0xbfffe000, map_size = 0x00000060
 void *lwp_map_user(struct rt_lwp *lwp, void *map_va, size_t map_size, int text)
 {
     void *ret = RT_NULL;
@@ -27,10 +27,10 @@ void *lwp_map_user(struct rt_lwp *lwp, void *map_va, size_t map_size, int text)
     }
 
     // 保证代码页对齐
-    offset = (size_t)map_va & ARCH_PAGE_MASK;			// offset   = 0xBFD00234 & 0x00000FFF = 0x00000234
-    map_size += (offset + ARCH_PAGE_SIZE - 1);			// map_size = 0x00100000 + 0x00000234 + 0x00000FFF = 0x00101233
-    map_size &= ~ARCH_PAGE_MASK;						// map_size = 0x00101233 & 0xFFFFF000 = 0x00101000
-    map_va = (void *)((size_t)map_va & ~ARCH_PAGE_MASK);// map_va   = 0xBFD00234 & 0xFFFFF000 = 0xBFD00000
+    offset = (size_t)map_va & ARCH_PAGE_MASK;			// offset   = 0xbfffe000 & 0x00000FFF = 0
+    map_size += (offset + ARCH_PAGE_SIZE - 1);			// map_size = 0x00000060 + 0 + 0x00000FFF = 0x105F
+    map_size &= ~ARCH_PAGE_MASK;						// map_size = 0x105F & 0xFFFFF000 = 0x1000
+    map_va = (void *)((size_t)map_va & ~ARCH_PAGE_MASK);// map_va   = 0xbfffe000 & 0xFFFFF000 = 0xbfffe000
     // map_va   = 0xBFD00234 ---> 0xBFD00000
     // map_size = 0x00100000 ---> 0x00101000
 
@@ -75,8 +75,6 @@ static void *_lwp_map_user(struct rt_lwp *lwp, void *map_va, size_t map_size, in
 
 #### 1.1.1 rt_hw_mmu_map_auto
 
-主要作用：分配size>>12个page内存，然后在mmu_info->vtable中建立对应v_addr的页表映射，有必要的话会分配二级页表的内存(因为一个二级页表只能存放256个对应关系)。
-
 ```c
 void *rt_hw_mmu_map_auto(rt_mmu_info *mmu_info, void *v_addr, size_t size, size_t attr)
 {
@@ -87,7 +85,7 @@ void *rt_hw_mmu_map_auto(rt_mmu_info *mmu_info, void *v_addr, size_t size, size_
     rt_mm_unlock();
     return ret;
 }
-// v_addr = 0xBFD00000, size = 0x00101000
+// v_addr = 0xbfffe000, size = 0x1000
 void *_rt_hw_mmu_map_auto(rt_mmu_info *mmu_info, void *v_addr, size_t size, size_t attr)
 {
     size_t vaddr;
@@ -99,13 +97,13 @@ void *_rt_hw_mmu_map_auto(rt_mmu_info *mmu_info, void *v_addr, size_t size, size
     {
         return 0;
     }
-    offset = (size_t)v_addr & ARCH_PAGE_MASK;	// offset = 0xBFD00000 & 0x00000FFF = 0
-    size += (offset + ARCH_PAGE_SIZE - 1);		// size = 0x00101000 + 0 + 0x00000FFF = 0x00101FFF;
-    pages = (size >> ARCH_PAGE_SHIFT);			// pages = 0x00101FFF >> 12 = 0x101 = 257
+    offset = (size_t)v_addr & ARCH_PAGE_MASK;	// offset = 0xbfffe000 & 0x00000FFF = 0
+    size += (offset + ARCH_PAGE_SIZE - 1);		// size = 0x1000 + 0 + 0x00000FFF = 0x1FFF;
+    pages = (size >> ARCH_PAGE_SHIFT);			// pages = 0x1FFF >> 12 = 0x1 = 1
     if (v_addr)
     {
-        vaddr = (size_t)v_addr;					// vaddr = 0xBFD00000 
-        vaddr &= ~ARCH_PAGE_MASK;				// vaddr = 0xBFD00000 & 0xFFF00000 = 0xBFD00000
+        vaddr = (size_t)v_addr;					// vaddr = 0xbfffe000 
+        vaddr &= ~ARCH_PAGE_MASK;				// vaddr = 0xbfffe000 & 0xFFFFF000 = 0xbfffe000
         if (check_vaddr(mmu_info, (void*)vaddr, pages) != 0)
         {
             return 0;
@@ -133,10 +131,10 @@ void *_rt_hw_mmu_map_auto(rt_mmu_info *mmu_info, void *v_addr, size_t size, size
 ##### check_vaddr
 
 ```c
-// va = 0xBFD00000, pages = 0x101 = 257
+// va = 0xbfffe000, pages = 0x1 = 1
 static int check_vaddr(rt_mmu_info *mmu_info, void *va, int pages)
 {
-    size_t loop_va = (size_t)va & ~ARCH_PAGE_MASK; // loop_va = 0xBFD00000 & 0xFFFFF000 = 0xBFD00000
+    size_t loop_va = (size_t)va & ~ARCH_PAGE_MASK; // loop_va = 0xbfffe000 & 0xFFFFF000 = 0xbfffe000
     size_t l1_off, l2_off;
     size_t *mmu_l1, *mmu_l2;
 
@@ -150,21 +148,21 @@ static int check_vaddr(rt_mmu_info *mmu_info, void *va, int pages)
         return -1;
     }
 	// 判断分配的内存是否在虚拟地址空间内
-    l1_off = ((size_t)va >> ARCH_SECTION_SHIFT);					// l1_off = 0xBFD
+    l1_off = ((size_t)va >> ARCH_SECTION_SHIFT);					// l1_off = 0xbff
     if (l1_off < mmu_info->vstart || l1_off > mmu_info->vend)		// l1_off < 0x001UL || l1_off > 0xC00UL
     {
         return -1;
     }
-    l1_off += ((pages << ARCH_PAGE_SHIFT) >> ARCH_SECTION_SHIFT);	// l1_off = 0xBFD + ((0x101 << 12) >> 20) = 0xBFE
+    l1_off += ((pages << ARCH_PAGE_SHIFT) >> ARCH_SECTION_SHIFT);	// l1_off = 0xbff + ((1 << 12) >> 20) = 0xbff
     if (l1_off < mmu_info->vstart || l1_off > mmu_info->vend + 1) 	// l1_off < 0x001UL || l1_off > 0xC00UL
     {
         return -1;
     }
 
-    while (pages--)                                                 // pages = 257
+    while (pages--)                                                 // pages = 1
     {
-        l1_off = (loop_va >> ARCH_SECTION_SHIFT);					// l1_off = 0xBFD00000 >> 20 = 0xBFD
-        l2_off = ((loop_va & ARCH_SECTION_MASK) >> ARCH_PAGE_SHIFT);// (0xBFD00000 & 0x000FFFFF) >> 12 = 0
+        l1_off = (loop_va >> ARCH_SECTION_SHIFT);					// l1_off = 0xbfffe000 >> 20 = 0xbff = 3071
+        l2_off = ((loop_va & ARCH_SECTION_MASK) >> ARCH_PAGE_SHIFT);// (0xbfffe000 & 0x000FFFFF) >> 12 = 0xfe = 254
         mmu_l1 =  (size_t*)mmu_info->vtable + l1_off;               // mmu_info->vtable地址 + 0xBFD
 
         if (*mmu_l1 & ARCH_MMU_USED_MASK)
@@ -182,10 +180,10 @@ static int check_vaddr(rt_mmu_info *mmu_info, void *va, int pages)
 ```
 
 ```c
-// v_addr = 0xBFD00000, npages = 0x101 = 257
+// v_addr = 0xbfffe000, npages = 0x1 = 1
 static int __rt_hw_mmu_map_auto(rt_mmu_info *mmu_info, void* v_addr, size_t npages, size_t attr)
 {
-    size_t loop_va = (size_t)v_addr & ~ARCH_PAGE_MASK;              // loop_va = 0xBFD00000 & 0xFFFFF000 = 0xBFD00000
+    size_t loop_va = (size_t)v_addr & ~ARCH_PAGE_MASK;              // loop_va = 0xbfffe000 & 0xFFFFF000 = 0xbfffe000
     size_t loop_pa;
     size_t l1_off, l2_off;
     size_t *mmu_l1, *mmu_l2;
@@ -197,12 +195,12 @@ static int __rt_hw_mmu_map_auto(rt_mmu_info *mmu_info, void* v_addr, size_t npag
 
     while (npages--)
     {
-        loop_pa = (size_t)rt_pages_alloc(0);                            // 分配物理页面4K
+        loop_pa = (size_t)rt_pages_alloc(0);                            // loop_pa = 0xc117f000
         if (!loop_pa)
             goto err;
 
-        l1_off = (loop_va >> ARCH_SECTION_SHIFT);                       // l1_off = 0xBFD00000 >> 20 = 0xBFD
-        l2_off = ((loop_va & ARCH_SECTION_MASK) >> ARCH_PAGE_SHIFT);    // (0xBFD00000 & 0x000FFFFF) >> 12 = 0
+        l1_off = (loop_va >> ARCH_SECTION_SHIFT);                       // l1_off = 0xbfffe000 >> 20 = 0xbff = 3071
+        l2_off = ((loop_va & ARCH_SECTION_MASK) >> ARCH_PAGE_SHIFT);    // (0xbfffe000 & 0x000FFFFF) >> 12 = 0xfe = 254
         mmu_l1 =  (size_t*)mmu_info->vtable + l1_off;
 
         if (*mmu_l1 & ARCH_MMU_USED_MASK)

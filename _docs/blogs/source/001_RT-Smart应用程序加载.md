@@ -199,19 +199,22 @@ pid_t lwp_execve(char *filename, int debug, int argc, char **argv, char **envp)
     }
 
     result = lwp_load(filename, lwp, RT_NULL, 0, aux);
-#ifdef ARCH_MM_MMU
+    // result == 1 表示是动态链接文件
     if (result == 1)
     {
         /* dynmaic */
         lwp_unmap_user(lwp, (void *)(USER_VADDR_TOP - ARCH_PAGE_SIZE));
         result = load_ldso(lwp, filename, argv, envp);
     }
-#endif /* ARCH_MM_MMU */
     if (result == RT_EOK)
     {
         rt_thread_t thread = RT_NULL;
         rt_uint32_t priority = 25, tick = 200;
-
+        
+        // 拷贝stdio标准fd描述符
+        // stdin的文件描述符是  ：0
+        // stdout的文件描述符是 ：1
+        // stderr的文件描述符是 ：2
         lwp_copy_stdio_fdt(lwp);
 
         /* obtain the base name */
@@ -322,6 +325,8 @@ pid_t lwp_execve(char *filename, int debug, int argc, char **argv, char **envp)
 
 ### 4.1 lwp_user_space_init
 
+![image-20240307215847169](figures/image-20240307215847169.png)
+
 ```c
 #define USER_VADDR_TOP    0xC0000000UL
 #define USER_HEAP_VEND    0xB0000000UL
@@ -359,25 +364,26 @@ int arch_user_space_init(struct rt_lwp *lwp)
 
 ### 4.2 lwp_argscopy
 
-```c
-static struct process_aux *lwp_argscopy(struct rt_lwp *lwp, int argc, char **argv, char **envp)
-{
-    int size = sizeof(int) * 5; /* store argc, argv, envp, aux, NULL */
-    struct process_aux *aux;
+![image-20240307223615241](figures/image-20240307223615241.png)
 
+```c
+struct process_aux *lwp_argscopy(struct rt_lwp *lwp, int argc, char **argv, char **envp)
+{
+    int size = sizeof(size_t) * 5; /* store argc, argv, envp, aux, NULL */
     int *args;
     char *str;
+    char *str_k;
     char **new_argve;
     int i;
     int len;
+    size_t *args_k;
+    struct process_aux *aux;
 
-    // 代码首先计算了存储所有参数、环境变量和辅助结构体process_aux所需的内存大小。
-    // 这包括每个字符串的长度、指向这些字符串的整数指针以及process_aux结构体本身的大小。
     for (i = 0; i < argc; i++)
     {
         size += (rt_strlen(argv[i]) + 1);
     }
-    size += (sizeof(int) * argc);
+    size += (sizeof(size_t) * argc);
 
     i = 0;
     if (envp)
@@ -385,7 +391,7 @@ static struct process_aux *lwp_argscopy(struct rt_lwp *lwp, int argc, char **arg
         while (envp[i] != 0)
         {
             size += (rt_strlen(envp[i]) + 1);
-            size += sizeof(int);
+            size += sizeof(size_t);
             i++;
         }
     }
@@ -393,25 +399,38 @@ static struct process_aux *lwp_argscopy(struct rt_lwp *lwp, int argc, char **arg
     /* for aux */
     size += sizeof(struct process_aux);
 
-    args = (int *)rt_malloc(size);
-    if (args == RT_NULL)
+    if (size > ARCH_PAGE_SIZE)
     {
         return RT_NULL;
     }
 
-    /* argc, argv[], 0, envp[], 0 */
-    str = (char *)((size_t)args + (argc + 2 + i + 1 + AUX_ARRAY_ITEMS_NR * 2 + 1) * sizeof(int));
+    /* args = (int *)lwp_map_user(lwp, 0, size); */
+    // 这里主要是为了给程序参数和环境变量啥的分配一块物理空间，并且建立对应的页表映射关系。
+    // 虚拟地址为USER_VADDR_TOP - ARCH_PAGE_SIZE = 0xBFFFF000
+    args = (int *)lwp_map_user(lwp, (void *)(USER_VADDR_TOP - ARCH_PAGE_SIZE), size, 0);
+    if (args == RT_NULL)
+    {
+        return RT_NULL;
+    }
+    
+    // 主要是为了把内存映射到虚拟地址的内核空间
+    args_k = (size_t *)rt_hw_mmu_v2p(&lwp->mmu_info, args);
+    args_k = (size_t *)((size_t)args_k - PV_OFFSET);
 
+    /* argc, argv[], 0, envp[], 0 , aux[] */
+    str = (char *)((size_t)args + (argc + 2 + i + 1 + AUX_ARRAY_ITEMS_NR * 2 + 1) * sizeof(size_t));
+    str_k = (char *)((size_t)args_k + (argc + 2 + i + 1 + AUX_ARRAY_ITEMS_NR * 2 + 1) * sizeof(size_t));
 
-    new_argve = (char **)&args[1];
-    args[0] = argc;
+    new_argve = (char **)&args_k[1];
+    args_k[0] = argc;
 
     for (i = 0; i < argc; i++)
     {
         len = rt_strlen(argv[i]) + 1;
         new_argve[i] = str;
-        rt_memcpy(str, argv[i], len);
+        rt_memcpy(str_k, argv[i], len);
         str += len;
+        str_k += len;
     }
     new_argve[i] = 0;
     i++;
@@ -420,22 +439,28 @@ static struct process_aux *lwp_argscopy(struct rt_lwp *lwp, int argc, char **arg
     if (envp)
     {
         int j;
+
         for (j = 0; envp[j] != 0; j++)
         {
             len = rt_strlen(envp[j]) + 1;
             new_argve[i] = str;
-            rt_memcpy(str, envp[j], len);
+            rt_memcpy(str_k, envp[j], len);
             str += len;
+            str_k += len;
             i++;
         }
         new_argve[i] = 0;
     }
+    i++;
+
     /* aux */
     aux = (struct process_aux *)(new_argve + i);
     aux->item[0].key = AT_EXECFN;
-    aux->item[0].value = (uint32_t)(size_t)new_argve[0];
+    aux->item[0].value = (size_t)(size_t)new_argve[0];
     i += AUX_ARRAY_ITEMS_NR * 2;
     new_argve[i] = 0;
+
+    rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, args_k, size);
 
     lwp->args = args;
 
@@ -648,7 +673,7 @@ static int load_elf(int fd, int len, struct rt_lwp *lwp, uint8_t *load_addr, str
     // 1. 检查 elf 头，判断其魔数、架构类型、版本号等是否符合要求
     // 1.1 检查头部Magic
     lseek(fd, 0, SEEK_SET);
-    read_len = load_fread(&magic, 1, sizeof magic, fd);
+    read_len = load_fread(&magic, 1, sizeof magic, fd);	// seek = 0
     check_read(read_len, sizeof magic);
 
     if (memcmp(elf_magic, &magic, 4) != 0)
@@ -665,7 +690,7 @@ static int load_elf(int fd, int len, struct rt_lwp *lwp, uint8_t *load_addr, str
     //      -> 第7个字节指明了ELF header的版本号，目前值都是1。
     //      -> 第8-16个字节，都填充为0。
     lseek(fd, off, SEEK_SET);
-    read_len = load_fread(&eheader, 1, sizeof eheader, fd);
+    read_len = load_fread(&eheader, 1, sizeof eheader, fd);	// seek = off = 0
     check_read(read_len, sizeof eheader);
     
     if (eheader.e_ident[4] != 1)
@@ -727,33 +752,51 @@ static int load_elf(int fd, int len, struct rt_lwp *lwp, uint8_t *load_addr, str
     }
     
     { /* load aux */
-        uint8_t *process_header;
-        size_t process_header_size;
+        uint8_t *process_header;		// 程序头表地址
+        size_t process_header_size;		// 程序头表的大小
         
         // 计算process_header_size，程序头表结构体所占的内存大小
-        off = eheader.e_phoff;// 程序头表在二进制文件中的偏移量
-        process_header_size = eheader.e_phnum * sizeof pheader;// 程序头表的数量*程序头表结构体的大小
+        off = eheader.e_phoff;									// 程序头表在二进制文件中的偏移量
+        process_header_size = eheader.e_phnum * sizeof pheader;	// 程序头表的数量*程序头表结构体的大小
 
         if (process_header_size > ARCH_PAGE_SIZE - sizeof(char[16]))// ARCH_PAGE_SIZE=1M
         {
             return -RT_ERROR;
         }
-        // lwp_map_user(lwp, 0xC0000000UL - 2*4K, process_header_size, 0)
+        
+        // void *lwp_map_user(struct rt_lwp *lwp, void *map_va, size_t map_size, int text)
+        // 分配 (map_size>>12) 个page内存，然后在mmu_info->vtable中建立对应map_va的页表映射，
+        // 有必要的话会分配二级页表的内存(因为一个二级页表只能存放256个对应关系)。
+        // 注意：lwp_map_user会对地址进行页对齐。
+        // 返回值为map_va表示建立页表映射成功。
+        
+        // 这里主要是为了给程序头表分配一块物理空间，并且建立对应的页表映射关系。
+        // 虚拟地址为USER_VADDR_TOP - ARCH_PAGE_SIZE * 2 = 0xBFFFE000
         va = (uint8_t *)lwp_map_user(lwp, (void *)(USER_VADDR_TOP - ARCH_PAGE_SIZE * 2), process_header_size, 0);
         if (!va)
         {
             return -RT_ERROR;
         }
+        
+        // 将process_header转化为内核的虚拟地址空间然后可以直接访问内存
         pa = rt_hw_mmu_v2p(m_info, va);
-        process_header = (uint8_t *)pa - PV_OFFSET;
+        process_header = (uint8_t *)pa - PV_OFFSET;	// 程序头表地址物理地址在内核空间的映射地址
 
         check_off(off, len);
         lseek(fd, off, SEEK_SET);
+        // 从elf文件中读取程序头表的内容到内存。也就是0xBFFFE000虚拟地址指向的物理地址处。
         read_len = load_fread(process_header, 1, process_header_size, fd);
         check_read(read_len, process_header_size);
 
         rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, process_header, process_header_size);
-
+		
+        // aux->item[6]的内容
+        // 0 key 31(AT_EXECFN) value 0xbffff04c(new_argve的地址)
+        // 1 key  6(AT_PAGESZ) value 0x00001000(ARCH_PAGE_SIZE)
+        // 2 key 25(AT_RANDOM) value 0xbfffeff0(random_value的保存地址)
+        // 3 key  3(AT_PHDR)   value 0xbfffe000(程序头表的虚拟地址起始)
+        // 4 key  5(AT_PHNUM)  value 0x00000003(程序头表的数量)
+        // 5 key  4(AT_PHENT)  value 0x00000020(程序头表数据结构的大小)
         aux->item[1].key = AT_PAGESZ;
 
         aux->item[1].value = ARCH_PAGE_SIZE;
@@ -780,6 +823,202 @@ static int load_elf(int fd, int len, struct rt_lwp *lwp, uint8_t *load_addr, str
         aux->item[5].key = AT_PHENT;
         aux->item[5].value = sizeof pheader;
         rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, aux, sizeof *aux);
+    }
+    
+    {
+        /* map user */
+        off = eheader.e_shoff;	// 节头表所在的偏移量
+        for (i = 0; i < eheader.e_shnum; i++, off += sizeof sheader)	// 读取每一个节头表的内容
+        {
+            check_off(off, len);
+            lseek(fd, off, SEEK_SET);
+            read_len = load_fread(&sheader, 1, sizeof sheader, fd);
+            check_read(read_len, sizeof sheader);
+            //  Section Headers:
+            //    [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al
+            //    [ 0]                   NULL            00000000 000000 000000 00      0   0  0
+            //    [ 1] .text             PROGBITS        00100000 000098 0115fc 00  AX  0   0  8
+            //    [ 2] .ARM.exidx        ARM_EXIDX       00112000 012098 000008 00  AL  1   0  4
+            //    [ 3] data              PROGBITS        00112008 0120a0 000150 00  WA  0   0  8
+            //    [ 4] bss               NOBITS          00112158 0121f0 0009bc 00  WA  0   0  8
+            //    [ 5] .comment          PROGBITS        00000000 0121f0 000023 01  MS  0   0  1
+            //    [ 6] .ARM.attributes   ARM_ATTRIBUTES  00000000 012213 00002f 00      0   0  1
+            //    [ 7] .debug_info       PROGBITS        00000000 012242 006616 00      0   0  1
+            //    [ 8] .debug_abbrev     PROGBITS        00000000 018858 001136 00      0   0  1
+            //    [ 9] .debug_loc        PROGBITS        00000000 01998e 002064 00      0   0  1
+            //    [10] .debug_aranges    PROGBITS        00000000 01b9f8 000298 00      0   0  8
+            //    [11] .debug_line       PROGBITS        00000000 01bc90 00225d 00      0   0  1
+            //    [12] .debug_str        PROGBITS        00000000 01deed 00322c 01  MS  0   0  1
+            //    [13] .debug_frame      PROGBITS        00000000 02111c 001364 00      0   0  4
+            //    [14] .debug_ranges     PROGBITS        00000000 022480 000030 00      0   0  1
+            //    [15] .symtab           SYMTAB          00000000 0224b0 00a420 10     16 2297  4
+            //    [16] .strtab           STRTAB          00000000 02c8d0 004a1a 00      0   0  1
+            //    [17] .shstrtab         STRTAB          00000000 0312ea 0000b4 00      0   0  1
+            //  
+            //
+            // .text、.ARM.exidx、data、bss仅对这几个带有alloc标志的进行处理。
+            if ((sheader.sh_flags & SHF_ALLOC) == 0)
+            {
+                continue;
+            }
+
+            // [ 1] .text             PROGBITS        00100000 000098 0115fc 00  AX  0   0  8
+            // [ 2] .ARM.exidx        ARM_EXIDX       00112000 012098 000008 00  AL  1   0  4
+            // [ 3] data              PROGBITS        00112008 0120a0 000150 00  WA  0   0  8
+            // [ 4] bss               NOBITS          00112158 0121f0 0009bc 00  WA  0   0  8
+            // 
+            switch (sheader.sh_type)
+            {
+            case SHT_PROGBITS:
+                if ((sheader.sh_flags & SHF_WRITE) == 0)
+                {
+                    // user_area[0] -> 0x00100000 0x000115fc
+                    expand_map_range(&user_area[0], (void *)sheader.sh_addr, sheader.sh_size);
+                }
+                else
+                {
+                    // user_area[1] -> 0x00112000 0x00000158(0x00000150+0x00000008)
+                    expand_map_range(&user_area[1], (void *)sheader.sh_addr, sheader.sh_size);
+                }
+                break;
+            case SHT_NOBITS:
+                // user_area[1] -> 0x00112000 0x00000b14(0x00000158+0x000009bc)
+                expand_map_range(&user_area[1], (void *)sheader.sh_addr, sheader.sh_size);
+                break;
+            default:
+                // user_area[1] -> 0x00112000 0x00000008
+                expand_map_range(&user_area[1], (void *)sheader.sh_addr, sheader.sh_size);
+                break;
+            }
+        }
+
+        if (user_area[0].size == 0)
+        {
+            /* no code */
+            result = -RT_ERROR;
+            goto _exit;
+        }
+
+        if (user_area[0].start == NULL)
+        {
+            /* DYN */
+            load_off = USER_LOAD_VADDR;
+            user_area[0].start = (void *)((char*)user_area[0].start + load_off);
+            user_area[1].start = (void *)((char*)user_area[1].start + load_off);
+        }
+
+        if (map_range_ckeck(&user_area[0], &user_area[1]) != 0)
+        {
+            result = -RT_ERROR;
+            goto _exit;
+        }
+
+        /* text and data */
+        for (i = 0; i < 2; i++)
+        {
+            if (user_area[i].size != 0)
+            {
+                // 这里主要是为了分配物理空间，并且建立对应的页表映射关系。
+                va = lwp_map_user(lwp, user_area[i].start, user_area[i].size, (int)(i == 0));
+                if (!va || (va != user_area[i].start))
+                {
+                    result = -RT_ERROR;
+                    goto _exit;
+                }
+            }
+        }
+        lwp->text_size = user_area[0].size;
+    }
+    
+    // 程序入口
+    lwp->text_entry = (void *)(eheader.e_entry + load_off);
+
+    off = eheader.e_phoff;		// 得出程序头表在elf文件中的offset
+
+    // Program Headers:
+    //   Type           Offset   VirtAddr   PhysAddr   FileSiz MemSiz  Flg Align
+    //   EXIDX          0x012098 0x00112000 0x00112000 0x00008 0x00008 R   0x4
+    //   LOAD           0x000098 0x00100000 0x00100000 0x12158 0x12b14 RWE 0x8
+    //   GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 RW  0x10
+    // 
+    //  Section to Segment mapping:
+    //   Segment Sections...
+    //    00     .ARM.exidx
+    //    01     .text .ARM.exidx data bss
+    //    02
+
+    for (i = 0; i < eheader.e_phnum; i++, off += sizeof pheader)
+    {
+        check_off(off, len);
+        lseek(fd, off, SEEK_SET);
+        read_len = load_fread(&pheader, 1, sizeof pheader, fd);
+        check_read(read_len, sizeof pheader);
+        
+        // 只处理LOAD，也就是.text .ARM.exidx data bss这些段
+        if (pheader.p_type == PT_LOAD)
+        {
+            /* p_filesz指定了段在二进制文件中的长度 */
+    		/* p_memsz制定了段在虚拟地址空间中的长度（单位为字节），与文件中物理的长度差值可通过阶段数据或者填充 0 字节来补偿 */
+            if (pheader.p_filesz > pheader.p_memsz)
+            {
+                return -RT_ERROR;
+            }
+
+            check_off(pheader.p_offset, len);
+            // 下面完成的操作是将elf文件的.text .ARM.exidx data bss段从文件里面加载到内存。
+            lseek(fd, pheader.p_offset, SEEK_SET);
+            {
+                uint32_t size = pheader.p_filesz;
+                size_t tmp_len = 0;
+
+                va = (void *)(pheader.p_vaddr + load_addr);
+                read_len = 0;
+                while (size)
+                {
+                    // 得出虚拟地址0x00100000在内核空间的虚拟地址
+                    pa = rt_hw_mmu_v2p(m_info, va);
+                    va_self = (void *)((char *)pa - PV_OFFSET);
+                    LOG_D("va_self = %p pa = %p", va_self, pa);
+                    tmp_len = (size < ARCH_PAGE_SIZE) ? size : ARCH_PAGE_SIZE;
+                    tmp_len = load_fread(va_self, 1, tmp_len, fd);
+                    rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, va_self, tmp_len);
+                    read_len += tmp_len;
+                    size -= tmp_len;
+                    va = (void *)((char *)va + ARCH_PAGE_SIZE);
+                }
+            }
+            check_read(read_len, pheader.p_filesz);
+            
+            // 从elf文件看出来.text .ARM.exidx data大小是p_filesz->0x12158
+            // .text .ARM.exidx data bss的大小是p_memsz->0x12b14
+            if (pheader.p_filesz < pheader.p_memsz)
+            {
+                // size刚好就是bss段的内容。所以下面内容是在清楚bss段。
+                uint32_t size = pheader.p_memsz - pheader.p_filesz;
+                uint32_t size_s;
+                uint32_t off;
+
+                off = pheader.p_filesz & ARCH_PAGE_MASK;
+                va = (void *)((pheader.p_vaddr + pheader.p_filesz + load_off) & ~ARCH_PAGE_MASK);
+                while (size)
+                {
+                    size_s = (size < ARCH_PAGE_SIZE - off) ? size : ARCH_PAGE_SIZE - off;
+                    pa = rt_hw_mmu_v2p(m_info, va);
+                    va_self = (void *)((char *)pa - PV_OFFSET);
+                    memset((void *)((char *)va_self + off), 0, size_s);
+                    rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, (void *)((char *)va_self + off), size_s);
+                    off = 0;
+                    size -= size_s;
+                    va = (void *)((char *)va + ARCH_PAGE_SIZE);
+                }
+            }
+        }
+    }
+    /* relocate */
+    if (eheader.e_type == ET_DYN)
+    {
+        // 不是动态加载先不看。
+        ...
     }
 }
 ```
