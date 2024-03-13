@@ -5,3 +5,4 @@
 - [Armv7_MMU分析](/_docs/blogs/source/004_Armv7_MMU分析.md)
 - [ELF文件分析](/_docs/blogs/source/005_ELF文件分析.md)
 - [LWP数据结构和API介绍](/_docs/blogs/source/006_LWP数据结构和API介绍.md)
+- [RT-Smart 进程通信机制](/_docs/blogs/source/007_RT-Smart%20进程通信机制.md)
