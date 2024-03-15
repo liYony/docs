@@ -7,3 +7,4 @@
 - [LWP数据结构和API介绍](/_docs/blogs/source/006_LWP数据结构和API介绍.md)
 - [RT-Smart进程通信机制](/_docs/blogs/source/007_RT-Smart进程通信机制.md)
 - [RT-Smart设备访问机制](/_docs/blogs/source/008_RT_Smart设备访问机制.md)
+- [RT-Smart启动流程](/_docs/blogs/source/009_RT-Smart启动流程.md)
