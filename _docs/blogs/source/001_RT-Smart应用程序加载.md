@@ -26,12 +26,19 @@ void finsh_thread_entry(void *parameter)
 
 ## 2 msh_exec
 
-其中msh_exec函数主要是为了解析"hello.elf"字符串：
-
 ```c
 int msh_exec(char *cmd, rt_size_t length)
 {
     ...
+    
+    /* strim the beginning of command */
+    // 去除命令行首的空格或者制表符
+    while (*cmd  == ' ' || *cmd == '\t')
+    {
+        cmd++;
+        length--;
+    }
+
 #ifdef RT_USING_LWP
     /* exec from msh_exec , debug = 0*/
     /* _msh_exec_lwp return is pid , <= 0 means failed */
@@ -44,6 +51,8 @@ int msh_exec(char *cmd, rt_size_t length)
 }
 ```
 
+主要处理进程的函数是_msh_exec_lwp函数。
+
 ## 3 _msh_exec_lwp
 
 ```c
@@ -54,41 +63,40 @@ int _msh_exec_lwp(int debug, char *cmd, rt_size_t length)
     char *argv[FINSH_ARG_MAX];
     char *pg_name;
     int ret;
-    rt_kprintf("%s(%s<%d>)\r\n", __func__, cmd, length);
-    /* find the size of first command */
+
+    // 获取命令行首的命令名 hello.elf
     while ((cmd[cmd0_size] != ' ' && cmd[cmd0_size] != '\t') && cmd0_size < length)
         cmd0_size ++;
     if (cmd0_size == 0)
         return -1;
 
-    /* split arguments */
+    // 分割所有参数，这里没有参数argc = 1， argv[0] = "hello.elf"
     rt_memset(argv, 0x00, sizeof(argv));
     argc = msh_split(cmd, length, argv);
     if (argc == 0)
         return -1;
 
-    /* try to find program in working directory */
+    // 在工作目录下查找文件是否存在，可以包含路径(hello.elf  /bin/hello.elf)
     pg_name = _msh_exec_search_path("", argv[0]);
     if (pg_name)
     {
         goto found_program;
     }
 
-    /* only check these paths when the first argument doesn't contain path 
-       seperator */
+    // 确保程序名里面没有路径
     if (strstr(argv[0], "/"))
     {
         return -1;
     }
 
-    /* try to find program in /bin */
+    // 在bin目录下查找文件是否存在
     pg_name = _msh_exec_search_path("/bin", argv[0]);
     if (pg_name)
     {
         goto found_program;
     }
 
-    /* try to find program in dirs registered to env path */
+    // 在环境变量的PATH路径下查找是否存在
     pg_name = _msh_exec_search_env(argv[0]);
     if (pg_name)
     {
@@ -118,6 +126,8 @@ found_program:
     - 在环境变量PATH里面查找可执行文件(不能包含路径"/")。
     - 直接执行exec函数。
 
+总之，只要能找到对应的文件，都会执行exec函数。
+
 ## 4 exec
 
 exec主要是调用lwp_execve函数：
@@ -136,6 +146,8 @@ pid_t exec(char *filename, int debug, int argc, char **argv)
 - argc：参数个数。
 - argv：参数内容。
 - __environ：环境变量。
+
+核心是执行lwp_execve函数：
 
 ```c
 pid_t lwp_execve(char *filename, int debug, int argc, char **argv, char **envp)
