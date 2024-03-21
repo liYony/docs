@@ -9,3 +9,4 @@
 - [RT-Smart设备访问机制](/_docs/blogs/source/008_RT_Smart设备访问机制.md)
 - [RT-Smart启动流程](/_docs/blogs/source/009_RT-Smart启动流程.md)
 - [RT-Smart应用程序加载_V2](/_docs/blogs/source/010_RT-Smart应用程序加载_V2.md)
+- [RT-Smart共享内存机制](/_docs/blogs/source/011_RT-Smart共享内存机制.md)
